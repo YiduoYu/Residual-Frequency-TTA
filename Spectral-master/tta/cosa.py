@@ -4,15 +4,37 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import json
-import pandas as pd
 import os
 from collections import deque, defaultdict
 from models.optimizer import get_optimizer
-from models.forecast import forecast
-from datasets.loader import get_test_dataloader
 from utils.misc import prepare_inputs
-from config import get_norm_method
 import time
+
+try:
+    from models.forecast import forecast
+except ModuleNotFoundError:
+    forecast = None
+
+try:
+    from config import get_norm_method
+except ModuleNotFoundError:
+    def get_norm_method(cfg):
+        return getattr(cfg, "NORMALIZE", "NST")
+
+try:
+    import pandas as pd
+except ModuleNotFoundError:
+    pd = None
+
+try:
+    from datasets.loader import get_test_dataloader
+except ModuleNotFoundError:
+    get_test_dataloader = None
+
+
+def _default_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class SimpleOutputAdapter(nn.Module):
     def __init__(self, pred_len: int, buffer_context_size: int = 5, n_vars: int = 1, 
@@ -82,13 +104,29 @@ class SimpleOutputAdapter(nn.Module):
             return y
         
         batch_size, pred_len, n_vars = y.shape
+        if context_data.dim() not in (2, 3):
+            raise ValueError(f"context_data must have shape [B, C] or [B, V, C], got {tuple(context_data.shape)}")
+        if context_data.shape[0] != batch_size:
+            raise ValueError(f"context batch size {context_data.shape[0]} does not match prediction batch size {batch_size}")
+        if context_data.dim() == 3 and context_data.shape[1] != n_vars:
+            raise ValueError(f"context variable size {context_data.shape[1]} does not match prediction variable size {n_vars}")
+        if context_data.shape[-1] != self.buffer_context_size:
+            raise ValueError(
+                f"context dim {context_data.shape[-1]} does not match adapter context dim {self.buffer_context_size}"
+            )
+        context_data = context_data.to(device=y.device, dtype=y.dtype)
         
         if self.var_wise:
+            if n_vars > len(self.fc_layers):
+                raise ValueError(f"prediction has {n_vars} variables but adapter has {len(self.fc_layers)} variable heads")
             corrections = []
             for var_idx in range(n_vars):
                 y_var = y[:, :, var_idx]
-                
-                combined_input = torch.cat([y_var, context_data], dim=-1)
+                if context_data.dim() == 3:
+                    context_var = context_data[:, var_idx, :]
+                else:
+                    context_var = context_data
+                combined_input = torch.cat([y_var, context_var], dim=-1)
                 
                 
                 correction_var = self.fc_layers[var_idx](combined_input)
@@ -100,7 +138,10 @@ class SimpleOutputAdapter(nn.Module):
             
         else:
             y_flattened = y.transpose(1, 2).contiguous().view(batch_size * n_vars, pred_len)
-            context_repeated = context_data.unsqueeze(1).repeat(1, n_vars, 1).view(batch_size * n_vars, -1)
+            if context_data.dim() == 3:
+                context_repeated = context_data.contiguous().view(batch_size * n_vars, -1)
+            else:
+                context_repeated = context_data.unsqueeze(1).repeat(1, n_vars, 1).view(batch_size * n_vars, -1)
             combined_input = torch.cat([y_flattened, context_repeated], dim=-1)
             correction = self.fc(combined_input)
             correction = correction.view(batch_size, n_vars, pred_len).transpose(1, 2)
@@ -116,8 +157,11 @@ class SimpleAdapter(nn.Module):
         self.cfg = cfg
         self.model_cfg = cfg.MODEL
         self.model = model
+        self.device = _default_device()
         self.norm_method = get_norm_method(cfg)
         self.norm_module = norm_module
+        if get_test_dataloader is None:
+            raise ImportError("datasets dependencies are required to instantiate SimpleAdapter")
         self.test_loader = get_test_dataloader(cfg)
         self.test_data = self.test_loader.dataset.test
 
@@ -162,7 +206,7 @@ class SimpleAdapter(nn.Module):
             var_wise_gating=self.var_wise_gating,
             num_layers=self.adapter_layers,
             hidden_dim=self.hidden_dim
-        ).cuda()
+        ).to(self.device)
         
         self.adapters_enabled = False
         self.step_count = 0
@@ -300,7 +344,7 @@ class SimpleAdapter(nn.Module):
     def _get_individual_context_for_batch(self, batch_size, current_batch_idx):
 
         if len(self.sample_history) == 0:
-            return torch.zeros(batch_size, self.buffer_context_size, device='cuda')
+            return torch.zeros(batch_size, self.buffer_context_size, device=self.device)
         
         history_size = min(self.buffer_context_size, len(self.sample_history))
         context_values = [self.sample_history[-(i+1)]['target_mean'] 
@@ -310,7 +354,7 @@ class SimpleAdapter(nn.Module):
             last_val = context_values[-1] if context_values else 0.0
             context_values.extend([last_val] * (self.buffer_context_size - len(context_values)))
         
-        context_tensor = torch.tensor(context_values, dtype=torch.float32, device='cuda')
+        context_tensor = torch.tensor(context_values, dtype=torch.float32, device=self.device)
         return context_tensor.unsqueeze(0).expand(batch_size, -1) 
     
     def _adaptive_learning_rate(self, current_loss: float, step: int, batch_idx: int = 0) -> float:
@@ -378,6 +422,8 @@ class SimpleAdapter(nn.Module):
         """Export stored predictions to CSV file"""
         if not self.csv_predictions:
             return
+        if pd is None:
+            raise ImportError("pandas is required when TTA.COSA.SAVE_CSV is enabled")
         
         df = pd.DataFrame(self.csv_predictions)
         
@@ -410,6 +456,8 @@ class SimpleAdapter(nn.Module):
     def _export_paas_info_to_csv(self):
         if not self.paas_batch_info:
             return
+        if pd is None:
+            raise ImportError("pandas is required when TTA.COSA.SAVE_PAAS_CSV is enabled")
         
         df = pd.DataFrame(self.paas_batch_info)
         
@@ -427,6 +475,8 @@ class SimpleAdapter(nn.Module):
     
     @torch.enable_grad()
     def adapt_simple(self):
+        if forecast is None:
+            raise ImportError("forecast dependencies are required to run SimpleAdapter.adapt_simple")
         batch_start = 0
         batch_end = 0
         batch_idx = 0

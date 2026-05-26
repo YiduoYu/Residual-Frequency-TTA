@@ -25,6 +25,7 @@ from predictor import Predictor
 from utils.misc import set_seeds, set_devices
 from tta.tafas import build_adapter
 import tta.cosa as cosa
+import tta.cosa_select as cosa_select
 import tta.petsa as petsa
 import tta.dynatta as dynatta
 from config import get_norm_module_cfg
@@ -74,6 +75,10 @@ def main():
         elif 'PETSA' in cfg.RESULT_DIR:
             # print("PETSA")
             adapter = petsa.build_adapter(cfg, model, norm_module=norm_module)
+            adapter.adapt()
+            adapter.count_parameters()
+        elif 'COSA_SELECT' in cfg.RESULT_DIR:
+            adapter = cosa_select.build_adapter(cfg, model, norm_module=norm_module)
             adapter.adapt()
             adapter.count_parameters()
         elif 'SIMPLE' in cfg.RESULT_DIR:
