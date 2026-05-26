@@ -2,7 +2,6 @@ import csv
 import json
 import os
 import time
-from collections import deque
 
 import numpy as np
 import torch
@@ -27,58 +26,19 @@ def _as_bool(value):
     return bool(value)
 
 
-def validate_spectral_usage(select_cfg):
-    spectral_usage = getattr(select_cfg, "SPECTRAL_USAGE", "context_only")
-    direct_enabled = _as_bool(getattr(select_cfg, "ENABLE_DIRECT_SPECTRAL_CORRECTION", False))
+def validate_spectral_usage(spectral_cfg):
+    spectral_usage = getattr(spectral_cfg, "USAGE", "context_only")
+    direct_enabled = _as_bool(getattr(spectral_cfg, "ENABLE_DIRECT_CORRECTION", False))
     if spectral_usage != "context_only":
         raise ValueError(
-            "Selective-Spectral COSA only supports SPECTRAL_USAGE='context_only'; "
+            "Spectral COSA only supports USAGE='context_only'; "
             f"got {spectral_usage!r}."
         )
     if direct_enabled:
         raise ValueError(
-            "ENABLE_DIRECT_SPECTRAL_CORRECTION must remain False. "
+            "ENABLE_DIRECT_CORRECTION must remain False. "
             "This implementation feeds spectral residual features only through COSA context."
         )
-
-
-class ResidualShiftDetector:
-    def __init__(self, kappa=1.0, ema_alpha=0.1, scale_mode="ewma_std", eps=1e-6, warmup=3):
-        if scale_mode not in ("ewma_std", "mad"):
-            raise ValueError(f"Unsupported residual scale mode: {scale_mode}")
-        self.kappa = float(kappa)
-        self.ema_alpha = float(ema_alpha)
-        self.scale_mode = scale_mode
-        self.eps = float(eps)
-        self.warmup = int(warmup)
-        self.ema = None
-        self.var = 0.0
-        self.history = deque(maxlen=128)
-
-    def update(self, residual):
-        residual = float(residual)
-        if self.ema is None:
-            self.ema = residual
-            self.var = 0.0
-            self.history.append(residual)
-            return True, self.ema, self.eps
-
-        scale = self._scale()
-        fired = len(self.history) < self.warmup or residual > self.ema + self.kappa * scale
-
-        prev_ema = self.ema
-        self.ema = (1.0 - self.ema_alpha) * self.ema + self.ema_alpha * residual
-        delta = residual - prev_ema
-        self.var = (1.0 - self.ema_alpha) * self.var + self.ema_alpha * delta * delta
-        self.history.append(residual)
-        return bool(fired), self.ema, scale
-
-    def _scale(self):
-        if self.scale_mode == "mad" and len(self.history) >= 3:
-            values = np.asarray(self.history, dtype=np.float64)
-            median = np.median(values)
-            return float(1.4826 * np.median(np.abs(values - median)) + self.eps)
-        return float(np.sqrt(max(self.var, 0.0)) + self.eps)
 
 
 class SpectralContextBuilder:
@@ -97,7 +57,7 @@ class SpectralContextBuilder:
         include_residual_scale: bool = True,
         eps: float = 1e-6,
     ):
-        if mode not in ("mean", "spectral", "concat"):
+        if mode not in ("spectral", "concat"):
             raise ValueError(f"Unsupported spectral context mode: {mode}")
         if feature_source != "residual_profile":
             raise ValueError(f"Unsupported spectral feature source: {feature_source}")
@@ -121,17 +81,12 @@ class SpectralContextBuilder:
         repr_width = 2 if self.spectral_repr == "real_imag" else 3
         extra_width = int(self.include_power_ratio) + 2 * int(self.include_residual_scale)
         self.spectral_dim = self.spectral_k * repr_width + extra_width
-        if self.mode == "mean":
-            self.context_dim = self.buffer_context_size
-        elif self.mode == "spectral":
+        if self.mode == "spectral":
             self.context_dim = self.spectral_dim
         else:
             self.context_dim = self.buffer_context_size + self.spectral_dim
 
     def build(self, sample_history, batch_size):
-        if self.mode == "mean":
-            return self._legacy_mean_context(sample_history, batch_size)
-
         spectral_context = self._spectral_features(sample_history)
         spectral_context = spectral_context.unsqueeze(0).expand(batch_size, -1, -1)
         if self.mode == "spectral":
@@ -139,10 +94,6 @@ class SpectralContextBuilder:
 
         mean_context = self._variable_mean_context(sample_history, batch_size)
         return torch.cat([mean_context, spectral_context], dim=-1)
-
-    def _legacy_mean_context(self, sample_history, batch_size):
-        values = self._recent_scalar_values(sample_history, "target_mean", self.buffer_context_size)
-        return values.unsqueeze(0).expand(batch_size, -1)
 
     def _variable_mean_context(self, sample_history, batch_size):
         if len(sample_history) == 0:
@@ -167,19 +118,6 @@ class SpectralContextBuilder:
         if context.shape[0] != self.n_vars:
             raise ValueError(f"target_mean_var has {context.shape[0]} variables, expected {self.n_vars}")
         return context.unsqueeze(0).expand(batch_size, -1, -1)
-
-    def _recent_scalar_values(self, sample_history, key, length):
-        if len(sample_history) == 0:
-            return torch.zeros(length, dtype=torch.float32, device=self.device)
-
-        values = []
-        history_size = min(length, len(sample_history))
-        for i in range(history_size):
-            entry = sample_history[-(i + 1)]
-            values.append(float(entry.get(key, 0.0)))
-        if len(values) < length:
-            values.extend([values[-1] if values else 0.0] * (length - len(values)))
-        return torch.tensor(values, dtype=torch.float32, device=self.device)
 
     def _spectral_features(self, sample_history):
         profiles = []
@@ -239,42 +177,35 @@ class SpectralContextBuilder:
         return torch.nan_to_num(context, nan=0.0, posinf=0.0, neginf=0.0)
 
 
-class SelectiveCOSAAdapter(SimpleAdapter):
+class SpectralCOSAAdapter(SimpleAdapter):
     def __init__(self, cfg, model, norm_module=None):
-        validate_spectral_usage(cfg.TTA.COSA.SELECT)
+        validate_spectral_usage(cfg.TTA.COSA.SPECTRAL)
         super().__init__(cfg, model, norm_module)
 
-        select_cfg = cfg.TTA.COSA.SELECT
-        self.enable_selective = _as_bool(getattr(select_cfg, "ENABLE_SELECTIVE", True))
-        self.spectral_usage = getattr(select_cfg, "SPECTRAL_USAGE", "context_only")
-        self.spectral_source = getattr(select_cfg, "SPECTRAL_SOURCE", "residual_profile")
-        self.spectral_repr = getattr(select_cfg, "SPECTRAL_REPR", "real_imag")
+        spectral_cfg = cfg.TTA.COSA.SPECTRAL
+        self.spectral_usage = getattr(spectral_cfg, "USAGE", "context_only")
+        self.spectral_source = getattr(spectral_cfg, "SOURCE", "residual_profile")
+        self.spectral_repr = getattr(spectral_cfg, "REPR", "real_imag")
         self.use_context_projection = False
         self.context_projector = None
 
-        self.detector = ResidualShiftDetector(
-            kappa=getattr(select_cfg, "KAPPA", 1.0),
-            ema_alpha=getattr(select_cfg, "EMA_ALPHA", 0.1),
-            scale_mode=getattr(select_cfg, "RESIDUAL_SCALE", "ewma_std"),
-            warmup=getattr(select_cfg, "WARMUP_BATCHES", 3),
-        )
         self.context_builder = SpectralContextBuilder(
             buffer_context_size=self.buffer_context_size,
-            spectral_k=getattr(select_cfg, "SPECTRAL_K", 8),
-            mode=getattr(select_cfg, "SPECTRAL_MODE", "concat"),
+            spectral_k=getattr(spectral_cfg, "K", 8),
+            mode=getattr(spectral_cfg, "MODE", "concat"),
             device=self.device,
             pred_len=cfg.DATA.PRED_LEN,
             n_vars=cfg.DATA.N_VAR,
             feature_source=self.spectral_source,
             spectral_repr=self.spectral_repr,
-            spectral_history_size=getattr(select_cfg, "SPECTRAL_HISTORY_SIZE", 8),
-            include_power_ratio=_as_bool(getattr(select_cfg, "SPECTRAL_INCLUDE_POWER_RATIO", True)),
-            include_residual_scale=_as_bool(getattr(select_cfg, "SPECTRAL_INCLUDE_RESIDUAL_STATS", True)),
+            spectral_history_size=getattr(spectral_cfg, "HISTORY_SIZE", 8),
+            include_power_ratio=_as_bool(getattr(spectral_cfg, "INCLUDE_POWER_RATIO", True)),
+            include_residual_scale=_as_bool(getattr(spectral_cfg, "INCLUDE_RESIDUAL_STATS", True)),
         )
 
         self.raw_context_dim = int(self.context_builder.context_dim)
         self.effective_context_dim = self.raw_context_dim
-        self._configure_context_projector(select_cfg)
+        self._configure_context_projector(spectral_cfg)
 
         self.output_adapter = SimpleOutputAdapter(
             pred_len=cfg.DATA.PRED_LEN,
@@ -290,20 +221,20 @@ class SelectiveCOSAAdapter(SimpleAdapter):
         self.model_state, self.optimizer_state = self._copy_model_and_optimizer()
 
         self.batch_logs = []
-        self.select_log_csv_path = getattr(select_cfg, "LOG_CSV_PATH", "")
+        self.spectral_log_csv_path = getattr(spectral_cfg, "LOG_CSV_PATH", "")
         self.context_projection_params = self._context_projection_param_count()
-        self.param_budget_multiplier = float(getattr(select_cfg, "PARAM_BUDGET_MULTIPLIER", 1.25))
-        self.context_projection_dim = int(getattr(select_cfg, "CONTEXT_PROJECTION_DIM", self.effective_context_dim))
+        self.param_budget_multiplier = float(getattr(spectral_cfg, "PARAM_BUDGET_MULTIPLIER", 1.25))
+        self.context_projection_dim = int(getattr(spectral_cfg, "CONTEXT_PROJECTION_DIM", self.effective_context_dim))
         self.max_context_dim_for_full_adapter = int(
-            getattr(select_cfg, "MAX_CONTEXT_DIM_FOR_FULL_ADAPTER", self.effective_context_dim)
+            getattr(spectral_cfg, "MAX_CONTEXT_DIM_FOR_FULL_ADAPTER", self.effective_context_dim)
         )
         self.estimated_context_param_increase = self._estimate_context_param_increase()
         self._warn_if_context_budget_exceeded()
 
-    def _configure_context_projector(self, select_cfg):
-        requested = _as_bool(getattr(select_cfg, "USE_CONTEXT_PROJECTION", True))
-        projection_dim = int(getattr(select_cfg, "CONTEXT_PROJECTION_DIM", 8))
-        if self.context_builder.mode != "mean" and requested and self.raw_context_dim > projection_dim:
+    def _configure_context_projector(self, spectral_cfg):
+        requested = _as_bool(getattr(spectral_cfg, "USE_CONTEXT_PROJECTION", True))
+        projection_dim = int(getattr(spectral_cfg, "CONTEXT_PROJECTION_DIM", 8))
+        if requested and self.raw_context_dim > projection_dim:
             self.effective_context_dim = projection_dim
             self.use_context_projection = True
             self.context_projector = nn.Linear(self.raw_context_dim, self.effective_context_dim).to(self.device)
@@ -343,8 +274,7 @@ class SelectiveCOSAAdapter(SimpleAdapter):
             approx_context_param_increase = self.cfg.DATA.PRED_LEN * context_delta
         budget_limit = self.param_budget_multiplier * baseline
         full_adapter_context_limit_exceeded = (
-            self.context_builder.mode != "mean"
-            and not self.use_context_projection
+            not self.use_context_projection
             and self.effective_context_dim > self.max_context_dim_for_full_adapter
         )
         return {
@@ -366,7 +296,7 @@ class SelectiveCOSAAdapter(SimpleAdapter):
         stats = self.estimated_context_param_increase
         if stats["budget_exceeded"]:
             print(
-                "[COSA_SELECT warning] projected spectral adapter exceeds parameter budget: "
+                "[COSA_SPECTRAL warning] projected spectral adapter exceeds parameter budget: "
                 f"raw_context_dim={self.raw_context_dim}, "
                 f"effective_context_dim={self.effective_context_dim}, "
                 f"context_projection_dim={self.context_projection_dim}, "
@@ -454,7 +384,7 @@ class SelectiveCOSAAdapter(SimpleAdapter):
     @torch.enable_grad()
     def adapt_simple(self):
         if forecast is None:
-            raise ImportError("forecast dependencies are required to run SelectiveCOSAAdapter.adapt_simple")
+            raise ImportError("forecast dependencies are required to run SpectralCOSAAdapter.adapt_simple")
         batch_start = 0
         batch_end = 0
         batch_idx = 0
@@ -533,12 +463,9 @@ class SelectiveCOSAAdapter(SimpleAdapter):
                 self.mae_all.append(mae)
 
                 residual = F.mse_loss(original_pred, ground_truth).item()
-                detected, residual_ema, residual_scale = self.detector.update(residual)
-                trigger_fired = True if not self.enable_selective else detected
-                skipped_update = bool(self.enable_selective and not trigger_fired)
 
                 gradient_steps = 0
-                if self.adapters_enabled and not skipped_update:
+                if self.adapters_enabled:
                     effective_steps = self.adapt_steps
                     if self.fast_adaptation:
                         effective_steps = min(self.adapt_steps, 5)
@@ -621,10 +548,6 @@ class SelectiveCOSAAdapter(SimpleAdapter):
                     ),
                     "context_projection_params": int(self.context_projection_params),
                     "residual": residual,
-                    "residual_ema": residual_ema,
-                    "residual_scale": residual_scale,
-                    "trigger_fired": int(trigger_fired),
-                    "skipped_update": int(skipped_update),
                     "gradient_steps": gradient_steps,
                     "mse": float(np.mean(mse)),
                     "mae": float(np.mean(mae)),
@@ -645,16 +568,16 @@ class SelectiveCOSAAdapter(SimpleAdapter):
             self._export_predictions_to_csv()
         if self.save_paas_csv:
             self._export_paas_info_to_csv()
-        self._export_selective_log()
+        self._export_spectral_log()
         self._print_combined_results()
 
-    def _export_selective_log(self):
+    def _export_spectral_log(self):
         if not self.batch_logs:
             return
-        if self.select_log_csv_path:
-            csv_path = self.select_log_csv_path
+        if self.spectral_log_csv_path:
+            csv_path = self.spectral_log_csv_path
         else:
-            csv_dir = os.path.join(self.cfg.RESULT_DIR, "csv_predictions", "COSA_SELECT")
+            csv_dir = os.path.join(self.cfg.RESULT_DIR, "csv_predictions", "COSA_SPECTRAL")
             os.makedirs(csv_dir, exist_ok=True)
             csv_path = os.path.join(
                 csv_dir,
@@ -676,13 +599,10 @@ class SelectiveCOSAAdapter(SimpleAdapter):
 
         adaptation_count = max(self.time_counts.get("total_adaptation", 1), 1)
         total_batches = max(len(self.batch_logs), 1)
-        skipped_batches = sum(row["skipped_update"] for row in self.batch_logs)
-        trigger_count = sum(row["trigger_fired"] for row in self.batch_logs)
 
         combined_results = {
-            "model": "SelectiveCOSAAdapter",
-            "selective_statistics": {
-                "enable_selective": bool(self.enable_selective),
+            "model": "SpectralCOSAAdapter",
+            "spectral_statistics": {
                 "spectral_usage": self.spectral_usage,
                 "spectral_repr": self.spectral_repr,
                 "spectral_mode": self.context_builder.mode,
@@ -702,10 +622,6 @@ class SelectiveCOSAAdapter(SimpleAdapter):
                 ),
                 "context_projection_params": int(self.context_projection_params),
                 "total_batches": int(total_batches),
-                "trigger_count": int(trigger_count),
-                "trigger_rate": float(trigger_count / total_batches),
-                "skipped_updates": int(skipped_batches),
-                "skipped_update_ratio": float(skipped_batches / total_batches),
             },
             "time_statistics": {
                 "adapter_operations": {
@@ -744,4 +660,4 @@ class SelectiveCOSAAdapter(SimpleAdapter):
 
 
 def build_adapter(cfg, model, norm_module=None):
-    return SelectiveCOSAAdapter(cfg, model, norm_module)
+    return SpectralCOSAAdapter(cfg, model, norm_module)

@@ -705,7 +705,8 @@ class SimpleAdapter(nn.Module):
             "time_statistics": time_statistics,
             "final_results": {
                 "adaptation_count": int(self.n_adapt),
-                "test_mse": float(self.mse_all.mean())
+                "test_mse": float(self.mse_all.mean()),
+                "test_mae": float(self.mae_all.mean())
             },
             "parameters": {
                 "total_params": total_params

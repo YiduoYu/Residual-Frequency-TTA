@@ -25,7 +25,7 @@ from predictor import Predictor
 from utils.misc import set_seeds, set_devices
 from tta.tafas import build_adapter
 import tta.cosa as cosa
-import tta.cosa_select as cosa_select
+import tta.cosa_spectral as cosa_spectral
 import tta.petsa as petsa
 import tta.dynatta as dynatta
 from config import get_norm_module_cfg
@@ -35,6 +35,8 @@ def main():
     args = parse_args()
     cfg = load_config(args)
     update_cfg_from_dataset(cfg, cfg.DATA.NAME)
+    if args.opts is not None:
+        cfg.merge_from_list(args.opts)
     
     cfg.RESULT_DIR = os.path.join(cfg.RESULT_DIR, cfg.TRAIN.CHECKPOINT_DIR.split('./checkpoints/')[-1])
     
@@ -77,8 +79,8 @@ def main():
             adapter = petsa.build_adapter(cfg, model, norm_module=norm_module)
             adapter.adapt()
             adapter.count_parameters()
-        elif 'COSA_SELECT' in cfg.RESULT_DIR:
-            adapter = cosa_select.build_adapter(cfg, model, norm_module=norm_module)
+        elif 'COSA_SPECTRAL' in cfg.RESULT_DIR:
+            adapter = cosa_spectral.build_adapter(cfg, model, norm_module=norm_module)
             adapter.adapt()
             adapter.count_parameters()
         elif 'SIMPLE' in cfg.RESULT_DIR:
