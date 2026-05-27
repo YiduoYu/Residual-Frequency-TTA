@@ -4,7 +4,7 @@
 
 The current Spectral-COSA method follows the same test-time adaptation structure as COSA, but adds residual-profile spectral information to the adapter context. The overall structure is shown below.
 
-
+![Architecture of Spectral COSA](architecture_of_spectral.drawio.png)
 
 The base forecasting model first produces a frozen base prediction:
 
