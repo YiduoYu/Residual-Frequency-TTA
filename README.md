@@ -63,6 +63,7 @@ The final corrected output is produced by adding the gated adapter correction to
 $$
 \hat{Y}_t = Y_t^{(0)} + g_t \odot H_t
 $$
+
 The corrected output $\hat{Y}_t$ is compared with the true $L$-step target $Y_t$ to compute the adaptation loss:
 
 $$
