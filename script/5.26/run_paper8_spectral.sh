@@ -10,9 +10,10 @@ cd "${SPECTRAL_ROOT}"
 # Paper grid plus two extra datasets:
 # W=96, L in {96,192,336,720}, train:val:test=7:1:2, K=10, S=3.
 PYTHON=${PYTHON:-python}
-SEEDS=${SEEDS:-${SEED:-"0 1 2 3 4 5 6 7 8 9"}}
+SEEDS=${SEEDS:-${SEED:-"0 1 2"}}
 VISIBLE_DEVICES=${VISIBLE_DEVICES:-0}
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-${VISIBLE_DEVICES}}
+export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}
 
 PAPER_DATASETS="ETTh1 ETTh2 ETTm1 ETTm2 exchange_rate weather"
 EXTRA_DATASETS="electricity traffic"
@@ -24,6 +25,10 @@ STAGES=${STAGES:-"train baseline cosa spectral collect"}
 COSA_BATCHING=${COSA_BATCHING:-"fixed paas"}
 DRY_RUN=${DRY_RUN:-False}
 SKIP_EXISTING=${SKIP_EXISTING:-False}
+CONTINUE_ON_ERROR=${CONTINUE_ON_ERROR:-True}
+COLLECT_REQUIRE_COMPLETE=${COLLECT_REQUIRE_COMPLETE:-False}
+FAILURE_LOG=${FAILURE_LOG:-"./results/summary/paper8_failures.tsv"}
+RUN_ID=${RUN_ID:-$(date +%Y%m%d_%H%M%S)}
 
 LOOK_BACK=${LOOK_BACK:-96}
 LABEL_LEN=${LABEL_LEN:-48}
@@ -96,10 +101,54 @@ dataset_csv() {
 require_data() {
   local dataset="${1}"
   local csv_path
-  csv_path="$(dataset_csv "${dataset}")"
+  csv_path="$(dataset_csv "${dataset}")" || return
   if ! is_true "${DRY_RUN}" && [ ! -f "${csv_path}" ]; then
     echo "Missing dataset file: ${csv_path}" >&2
     return 1
+  fi
+}
+
+init_failure_log() {
+  mkdir -p "$(dirname "${FAILURE_LOG}")"
+  if [ ! -f "${FAILURE_LOG}" ]; then
+    printf 'run_id\ttimestamp\tstage\tmodel\tdataset\tpred_len\tseed\tvariant\texit_code\n' > "${FAILURE_LOG}"
+  fi
+}
+
+record_failure() {
+  local stage="${1}"
+  local model="${2}"
+  local dataset="${3}"
+  local pred_len="${4}"
+  local seed="${5}"
+  local variant="${6}"
+  local exit_code="${7}"
+  init_failure_log
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${RUN_ID}" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${stage}" "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}" \
+    >> "${FAILURE_LOG}"
+  echo "failed ${stage}: model=${model} dataset=${dataset} pred_len=${pred_len} seed=${seed} variant=${variant} exit_code=${exit_code}" >&2
+}
+
+run_with_recovery() {
+  local stage="${1}"
+  local model="${2}"
+  local dataset="${3}"
+  local pred_len="${4}"
+  local seed="${5}"
+  local variant="${6}"
+  shift 6
+
+  local exit_code
+  if "$@"; then
+    return 0
+  else
+    exit_code=$?
+    record_failure "${stage}" "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}"
+    if is_true "${CONTINUE_ON_ERROR}"; then
+      return 0
+    fi
+    return "${exit_code}"
   fi
 }
 
@@ -161,7 +210,7 @@ run_train_one() {
   checkpoint_dir="$(checkpoint_dir_for "${model}" "${dataset}" "${pred_len}" "${seed}")"
   local output="./results/summary/PAPER8_TRAIN/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
 
-  require_data "${dataset}"
+  require_data "${dataset}" || return
   if is_true "${SKIP_EXISTING}" && [ -f "${checkpoint_dir}/checkpoint_best.pth" ]; then
     echo "skip train: ${model}/${dataset}/${pred_len}"
     return
@@ -202,8 +251,8 @@ run_baseline_one() {
   checkpoint_dir="$(checkpoint_dir_for "${model}" "${dataset}" "${pred_len}" "${seed}")"
   local output="./results/summary/BASELINE/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
 
-  require_data "${dataset}"
-  require_checkpoint "${checkpoint_dir}"
+  require_data "${dataset}" || return
+  require_checkpoint "${checkpoint_dir}" || return
   if is_true "${SKIP_EXISTING}" && [ -f "./results/BASELINE/seed${seed}/${model}/${dataset}_${pred_len}/test.txt" ]; then
     echo "skip baseline: ${model}/${dataset}/${pred_len}"
     return
@@ -256,8 +305,8 @@ run_cosa_one() {
       ;;
   esac
 
-  require_data "${dataset}"
-  require_checkpoint "${checkpoint_dir}"
+  require_data "${dataset}" || return
+  require_checkpoint "${checkpoint_dir}" || return
 
   local output="./results/summary/SIMPLE/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
   if is_true "${SKIP_EXISTING}" && [ -f "${output}" ]; then
@@ -316,8 +365,8 @@ run_spectral_one() {
   local variant_tag
   variant_tag="$(spectral_variant)"
 
-  require_data "${dataset}"
-  require_checkpoint "${checkpoint_dir}"
+  require_data "${dataset}" || return
+  require_checkpoint "${checkpoint_dir}" || return
 
   local output="./results/summary/COSA_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
   local log_csv="./results/summary/COSA_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}_batches.csv"
@@ -390,7 +439,8 @@ run_collect() {
   done
   variants+=("$(spectral_variant)")
 
-  run_cmd "${PYTHON_CMD[@]}" "${SCRIPT_DIR}/collect_results.py" \
+  local collect_args=(
+    "${PYTHON_CMD[@]}" "${SCRIPT_DIR}/collect_results.py"
     --root results/summary \
     --baseline-root results/BASELINE \
     --output results/summary/paper8_full_comparison.csv \
@@ -400,16 +450,23 @@ run_collect() {
     --models "${MODEL_LIST[@]}" \
     --horizons "${PRED_LEN_LIST[@]}" \
     --variants "${variants[@]}" \
-    --expected-seeds "${SEED_LIST[@]}" \
-    --require-complete
+    --expected-seeds "${SEED_LIST[@]}"
+  )
+  if is_true "${COLLECT_REQUIRE_COMPLETE}"; then
+    collect_args+=(--require-complete)
+  fi
+  run_cmd "${collect_args[@]}"
 }
+
+init_failure_log
 
 if has_stage train; then
   for seed in "${SEED_LIST[@]}"; do
   for model in "${MODEL_LIST[@]}"; do
     for dataset in "${DATASET_LIST[@]}"; do
       for pred_len in "${PRED_LEN_LIST[@]}"; do
-        run_train_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+        run_with_recovery train "${model}" "${dataset}" "${pred_len}" "${seed}" checkpoint \
+          run_train_one "${model}" "${dataset}" "${pred_len}" "${seed}"
       done
     done
   done
@@ -421,7 +478,8 @@ if has_stage baseline; then
   for model in "${MODEL_LIST[@]}"; do
     for dataset in "${DATASET_LIST[@]}"; do
       for pred_len in "${PRED_LEN_LIST[@]}"; do
-        run_baseline_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+        run_with_recovery baseline "${model}" "${dataset}" "${pred_len}" "${seed}" baseline_no_tta \
+          run_baseline_one "${model}" "${dataset}" "${pred_len}" "${seed}"
       done
     done
   done
@@ -434,7 +492,8 @@ if has_stage cosa; then
     for model in "${MODEL_LIST[@]}"; do
       for dataset in "${DATASET_LIST[@]}"; do
         for pred_len in "${PRED_LEN_LIST[@]}"; do
-          run_cosa_one "${model}" "${dataset}" "${pred_len}" "${batch_mode}" "${seed}"
+          run_with_recovery cosa "${model}" "${dataset}" "${pred_len}" "${seed}" "$(cosa_variant_for_mode "${batch_mode}")" \
+            run_cosa_one "${model}" "${dataset}" "${pred_len}" "${batch_mode}" "${seed}"
         done
       done
     done
@@ -447,7 +506,8 @@ if has_stage spectral; then
     for model in "${MODEL_LIST[@]}"; do
       for dataset in "${DATASET_LIST[@]}"; do
         for pred_len in "${PRED_LEN_LIST[@]}"; do
-          run_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+          run_with_recovery spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "$(spectral_variant)" \
+            run_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
         done
       done
     done
@@ -455,5 +515,5 @@ if has_stage spectral; then
 fi
 
 if has_stage collect; then
-  run_collect
+  run_with_recovery collect - - - - summary run_collect
 fi
