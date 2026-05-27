@@ -1,10 +1,85 @@
 # COSA to Spectral Experiment Project
 
+## Method Overview: Spectral-COSA
+
+The current Spectral-COSA method follows the same test-time adaptation structure as COSA, but adds residual-profile spectral information to the adapter context. The overall structure is shown below.
+
+
+
+The base forecasting model first produces a frozen base prediction:
+
+$$
+Y_t^{(0)} = f_{\theta}(X_t)
+$$
+
+where $f_{\theta}$ is the pretrained forecasting backbone. During test-time adaptation, the backbone is not updated. Only the lightweight adapter-related parameters are optimized.
+
+After the base prediction is generated, Spectral-COSA computes the residual profile using the true target and the frozen base prediction:
+
+$$
+R_t = Y_t - Y_t^{(0)}
+$$
+
+where $Y_t$ is the true $L$-step target and $Y_t^{(0)}$ is the base prediction. This residual profile describes the prediction error pattern of the frozen base model on the current test batch.
+
+The residual profile is then used to build spectral features. In the current implementation, the spectral features are represented as:
+
+$$
+C_t^{spectral} = [\mathrm{Re}(\hat{R}), \mathrm{Im}(\hat{R}), p, \mu_R, \sigma_R]
+$$
+
+where $\mathrm{Re}(\hat{R})$ and $\mathrm{Im}(\hat{R})$ are the real and imaginary parts of the selected FFT coefficients from the residual profile, $p$ is the residual power-ratio feature, $\mu_R$ is the residual mean, and $\sigma_R$ is the residual standard deviation.
+
+The context buffer stores recent context information and combines the original mean-history context with the spectral residual-profile context. The final adapter context is:
+
+$$
+C_t = \mathrm{Proj}([C_t^{mean} \mid C_t^{spectral}])
+$$
+
+where $\mathrm{Proj}(\cdot)$ is the context projection module. This projection keeps the effective context dimension small before the context is passed into the adapter.
+
+The adapter input is constructed by concatenating the base prediction with the projected context:
+
+$$
+X_t^{(a)} = [Y_t^{(0)} \mid C_t]
+$$
+
+The adapter then applies a lightweight linear layer:
+
+$$
+H_t = W X_t^{(a)} + b
+$$
+
+where $H_t$ is the adapter correction output.
+
+The correction is controlled by a gating function:
+
+$$
+g_t = \tanh(g)
+$$
+
+The final corrected output is produced by adding the gated adapter correction to the base prediction:
+
+$$
+\hat{Y}_t = Y_t^{(0)} + g_t \odot H_t
+$$
+The corrected output $\hat{Y}_t$ is compared with the true $L$-step target $Y_t$ to compute the adaptation loss:
+
+$$
+\mathcal{L}_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)
+$$
+
+For evaluation, both MSE and MAE are reported.
+
+The loss updates only the adapter-related parameters during test-time adaptation. The base forecasting model remains frozen throughout this process.
+
+Overall, Spectral-COSA can be understood as a residual-style correction method: the base model provides the main prediction, while the adapter learns a small test-time correction using recent context and residual-profile spectral features.
+
+## 2026-05-27 Experiment Design
+
 This repository keeps the original COSA/Spectral implementation under
 `Spectral-master/` and the course experiment orchestration scripts under
 `script/5.26/`.
-
-## 2026-05-27 Experiment Design
 
 The current main experiment is driven by:
 
