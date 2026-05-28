@@ -1,0 +1,11 @@
+/run_logs/
+
+# Keep local experiment artifacts and checkpoints out of cleanup commits.
+/results/
+/checkpoints/
+/Spectral-master/results/
+/Spectral-master/checkpoints/
+
+__pycache__/
+*.py[cod]
+.DS_Store

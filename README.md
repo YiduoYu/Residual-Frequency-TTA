@@ -1,8 +1,8 @@
 # COSA to Spectral Experiment Project
 
-## Method Overview: Spectral-COSA
+## Method Overview: Balanced Spectral-PEFT COSA
 
-Spectral-COSA extends COSA by adding residual-profile spectral context to the output-space adapter.
+Balanced Spectral-PEFT COSA extends COSA by using a multi-window residual-spectrum encoder to condition lightweight output-space PEFT backends.
 
 ![Architecture of Spectral COSA](architecture_of_spectral.drawio.png)
 
@@ -10,26 +10,26 @@ Spectral-COSA extends COSA by adding residual-profile spectral context to the ou
 |---|---|
 | $Y_t^{(0)} = f_{\theta}(X_t)$ | Frozen base prediction from the pretrained backbone. |
 | $R_t = Y_t - Y_t^{(0)}$ | Residual profile / base prediction error. |
-| $C_t^{spectral} = [\mathrm{Re}(\hat{R}), \mathrm{Im}(\hat{R}), p, \mu_R, \sigma_R]$ | Residual-profile FFT features and residual statistics. |
-| $C_t = \mathrm{Proj}([C_t^{mean} \mid C_t^{spectral}])$ | Projected context from mean-history and spectral context. |
-| $X_t^{(a)} = [Y_t^{(0)} \mid C_t]$ | Adapter input. |
-| $H_t = W X_t^{(a)} + b$ | Linear adapter correction. |
-| $g_t = \tanh(g)$ | Gated correction strength. |
-| $\hat{Y}_t = Y_t^{(0)} + g_t \odot H_t$ | Corrected output. |
+| $S_k=\mathrm{rFFT}(w_k\odot R_t)$ | Multi-window residual-spectrum encoding. |
+| $s=\mathrm{Fuse}(\mathrm{Pool}(S_1),\ldots,\mathrm{Pool}(S_K))$ | Unified spectral condition vector. |
+| $H_m=\mathrm{Backend}_m(Y_t^{(0)},s)$ | FiLM, IA3, adapter, and LoRA-style lightweight PEFT outputs. |
+| $\rho_m=\mathrm{softmax}(g(s))$ | Backend mixture weights. |
+| $\hat{Y}_t=Y_t^{(0)}+\sum_m\rho_m(H_m-Y_t^{(0)})$ | Residual gated mixture correction. |
 | $\mathcal{L}_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)$ | Adaptation loss for updating the adapter. |
 
 For evaluation, both MSE and MAE are reported. The base model remains frozen; only adapter-related parameters are updated during test-time adaptation.
 
-## 2026-05-27 Experiment Design
+## 2026-05-29 Balanced Spectral-PEFT Experiment Design
 
-This repository keeps the original COSA/Spectral implementation under
-`Spectral-master/` and the course experiment orchestration scripts under
-`script/5.26/`.
+The current Balanced Spectral-PEFT implementation lives under `Spectral-master/`.
+The dated experiment entrypoint is kept under
+`script/2026-05-29_balanced_spectral_peft/` to separate the new version from
+older paper8 orchestration files.
 
 The current main experiment is driven by:
 
 ```bash
-bash script/5.26/run_paper8_spectral.sh
+bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 ```
 
 This script runs the paper-style grid plus two additional datasets:
@@ -45,7 +45,7 @@ This script runs the paper-style grid plus two additional datasets:
 The script executes these stages by default:
 
 ```text
-train -> baseline -> cosa -> spectral -> collect
+train -> baseline -> cosa -> balanced -> collect
 ```
 
 The comparison includes:
@@ -53,12 +53,12 @@ The comparison includes:
 - No-TTA baseline
 - COSA with fixed batching
 - COSA with PAAS batching
-- Spectral-COSA using residual-profile context
+- Balanced Spectral-PEFT COSA using multi-window FFT conditioning and gated PEFT backends
 
-For the Spectral-COSA setting, the current design uses spectral information as
-context only. It builds residual-profile features, represents them with
-`real_imag`, uses history size `8`, projects the context to dimension `8`, and
-keeps direct spectral correction disabled.
+For the Balanced setting, the default spectral encoder uses Hann, Hamming, and
+rectangular windows, `real_imag` spectral features, low/mid/high band pooling,
+softmax-gate window fusion, condition dimension `8`, and FiLM/IA3/adapter/LoRA
+backends with residual mixture fusion.
 
 ## Training Reliability Logic
 
@@ -70,7 +70,7 @@ to manage:
 - `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is exported by default to
   reduce CUDA memory fragmentation.
 - `CONTINUE_ON_ERROR=True` lets the grid continue after a failed train,
-  baseline, COSA, Spectral-COSA, or collection job.
+  baseline, COSA, Balanced Spectral-PEFT, or collection job.
 - Failures are recorded in `Spectral-master/results/summary/paper8_failures.tsv`
   with run id, timestamp, stage, model, dataset, horizon, seed, variant, and
   exit code.
@@ -82,13 +82,13 @@ Useful overrides:
 
 ```bash
 # Run the original ten-seed grid.
-SEEDS="0 1 2 3 4 5 6 7 8 9" bash script/5.26/run_paper8_spectral.sh
+SEEDS="0 1 2 3 4 5 6 7 8 9" bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 
 # Stop immediately on the first failed job.
-CONTINUE_ON_ERROR=False bash script/5.26/run_paper8_spectral.sh
+CONTINUE_ON_ERROR=False bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 
 # Collect only after all expected outputs are present.
-COLLECT_REQUIRE_COMPLETE=True bash script/5.26/run_paper8_spectral.sh
+COLLECT_REQUIRE_COMPLETE=True bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 ```
 
 The original implementation README remains available at
