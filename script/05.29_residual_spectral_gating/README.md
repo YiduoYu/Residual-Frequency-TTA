@@ -22,14 +22,22 @@ ablation through environment variables. It is not the default.
 - Entrypoint: `run_residual_spectral_gating.sh`
 - Result family: `COSA_SCHEME6`
 - Adapter: `Spectral-master/tta/cosa_scheme6.py`
-- Default variant:
-  `scheme6_direct_unidirectional_hann_diagonal_globalgate_hist8`
+- Default scope: one small adapter ablation on `DLinear / ETTh1 / pred96 / seed0`.
+- Default ablations: `core`, `no_out_proj`, `no_global_gate`.
+- The runner intentionally leaves normalization, PAAS, dataloader tuning, and
+  broader training/runtime knobs at config defaults. First-pass testing should
+  isolate the core adapter behavior.
 
 Useful conservative smoke test:
 
 ```bash
-DRY_RUN=True MODELS="DLinear" DATASETS="ETTh1" PRED_LENS="96" SEEDS="0" \
-  bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+DRY_RUN=True bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+```
+
+Run only the conservative adapter:
+
+```bash
+ABLATIONS="core" bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
 ## Collector
