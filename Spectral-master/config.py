@@ -147,7 +147,7 @@ _C.TTA.COSA.PAAS = False
 _C.TTA.COSA.PERIOD_N = 1
 _C.TTA.COSA.SPECTRAL = CN()
 _C.TTA.COSA.SPECTRAL.MODE = 'concat'     # spectral or concat
-_C.TTA.COSA.SPECTRAL.USAGE = 'context_only'
+_C.TTA.COSA.SPECTRAL.USAGE = 'context_only'  # context_only, direct, context_plus_direct
 _C.TTA.COSA.SPECTRAL.SOURCE = 'residual_profile'
 _C.TTA.COSA.SPECTRAL.REPR = 'real_imag'  # real_imag or mag_phase
 _C.TTA.COSA.SPECTRAL.K = 8
@@ -161,6 +161,15 @@ _C.TTA.COSA.SPECTRAL.CONTEXT_PROJECTION_DIM = 8
 _C.TTA.COSA.SPECTRAL.MAX_CONTEXT_DIM_FOR_FULL_ADAPTER = 16
 _C.TTA.COSA.SPECTRAL.PARAM_BUDGET_MULTIPLIER = 1.25
 _C.TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION = False
+_C.TTA.COSA.SPECTRAL.GATE_MODE = 'unidirectional'  # fy_only, unidirectional, bidirectional
+_C.TTA.COSA.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION = False
+_C.TTA.COSA.SPECTRAL.USE_GLOBAL_GATE = True
+_C.TTA.COSA.SPECTRAL.GLOBAL_GATE_FEATURES = 'hs,l2,low_freq_ratio'
+_C.TTA.COSA.SPECTRAL.ENABLE_REVIN_ON_SPECTRAL_PATH = False
+_C.TTA.COSA.SPECTRAL.WINDOW_TYPE = 'hann'  # none, hann, hamming
+_C.TTA.COSA.SPECTRAL.OUT_PROJ = 'diagonal'  # none, diagonal, depthwise, dense
+_C.TTA.COSA.SPECTRAL.FFT_PRECISION = 'fp32'  # fp32, bf16, fp16
+_C.TTA.COSA.SPECTRAL.FFT_LENGTH_MODE = 'exact'  # exact, pad_pow2 reserved
 _C.TTA.COSA.SPECTRAL.LOG_CSV_PATH = ''
 
 ## DynaTTA: Dynamic Test-Time Adaptation
