@@ -13,3 +13,18 @@
 - Default test is intentionally small: `DLinear`, `ETTh1`, `pred96`, `seed0`.
 - Default ablations are `core`, `no_out_proj`, and `no_global_gate`.
 - Normalization, PAAS, dataloader tuning, and broad runtime knobs are left at config defaults so the first pass isolates the core adapter behavior.
+
+## 2026-06-02 00:00 Asia/Shanghai
+
+- Per user directive, kept the active implementation in `script/05.29_residual_spectral_gating/` instead of creating a new `06.02` script version.
+- Expanded the default runner grid to match the 5.26 evaluation scope: `DLinear FreTS iTransformer MICN OLS PatchTST`, all 8 datasets, horizons `96 192 336 720`, and seeds `0 1 2`.
+- Switched Scheme 6 evaluation to seed-aware checkpoint lookup at `Spectral-master/checkpoints/seed<seed>/<model>/<dataset>_<pred_len>/checkpoint_best.pth`; the runner evaluates existing checkpoints and does not retrain them.
+- Added failure logging, resume support through `SKIP_EXISTING=True`, and stderr capture in per-run logs.
+- Extended `collect_scheme6_results.py` to produce per-seed, averaged, and 5.26-reference improvement CSVs for listing Scheme 6 uplift after the logs are generated.
+- Added `fill_scheme6_excel.py` to populate the official 5.26 `paper8_mse_improvement_analysis.xlsx` template with V5/Scheme6 MSE, comparison formulas, per-model/per-dataset summaries, and all collected Scheme6 ablation variants.
+
+## 2026-06-02 17:52 Asia/Shanghai
+
+- Fixed `collect_scheme6_results.py` path inference for 5.26-style `SIMPLE/<variant>/<model>/<dataset>/pred<horizon>_seed<seed>.log` logs while preserving the older `SIMPLE/<model>/<dataset>/<horizon>.txt` layout.
+- Added Scheme 6 summary metadata fallbacks so collected rows retain `spectral_usage`, `spectral_k`, `spectral_repr`, `context_dim`, and `direct_spectral_enabled` for new and existing Scheme 6 logs.
+- Declared the `openpyxl` dependency required by `fill_scheme6_excel.py` and added a clear missing-dependency error message.

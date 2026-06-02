@@ -22,22 +22,35 @@ ablation through environment variables. It is not the default.
 - Entrypoint: `run_residual_spectral_gating.sh`
 - Result family: `COSA_SCHEME6`
 - Adapter: `Spectral-master/tta/cosa_scheme6.py`
-- Default scope: one small adapter ablation on `DLinear / ETTh1 / pred96 / seed0`.
+- Default scope: the 5.26-style evaluation grid, `6 models x 8 datasets x 4 horizons x 3 seeds`.
+  The runner is checkpoint-only and expects pretrained weights at
+  `Spectral-master/checkpoints/seed<seed>/<model>/<dataset>_<pred_len>/checkpoint_best.pth`.
 - Default ablations: `core`, `no_out_proj`, `no_global_gate`.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
-  broader training/runtime knobs at config defaults. First-pass testing should
-  isolate the core adapter behavior.
+  broader training/runtime knobs at config defaults so the measured change
+  isolates the Scheme 6 adapter behavior.
+- Failed runs are appended to `Spectral-master/results/summary/scheme6_failures.tsv`.
+  Set `CONTINUE_ON_ERROR=False` to stop at the first failure, or
+  `SKIP_EXISTING=True` to resume without rerunning completed logs.
 
 Useful conservative smoke test:
 
 ```bash
-DRY_RUN=True bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+DRY_RUN=True MODELS="DLinear" DATASETS="ETTh1" PRED_LENS="96" SEEDS="0 1 2" \
+  ABLATIONS="core" bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
 Run only the conservative adapter:
 
 ```bash
 ABLATIONS="core" bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+```
+
+Resume the full default grid without recomputing existing logs:
+
+```bash
+SKIP_EXISTING=True ABLATIONS="core" \
+  bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
 ## 2026-05-29 Conservative Formula Checklist
@@ -82,6 +95,21 @@ Minimal correction-generator change:
 - Entrypoint: `collect_scheme6_results.py`
 - Reads `Spectral-master/results/summary/`
 - Understands `COSA_SCHEME6`, `COSA_SELECT`, and `SIMPLE` result families.
+- Writes per-seed, averaged, and 5.26-comparison CSVs:
+  `scheme6_collected_results.csv`,
+  `scheme6_collected_results_averaged.csv`,
+  `scheme6_improvement_vs_526.csv`.
+- Positive `*_improvement_pct` means Scheme 6 is better than the selected 5.26
+  reference row for the same `(model, dataset, horizon)`.
+- Excel fill-in: `fill_scheme6_excel.py` reads the official 5.26 workbook
+  `result/5.26_paper8_experiment/final_tables/paper8_mse_improvement_analysis.xlsx`
+  and writes `Spectral-master/results/summary/paper8_mse_improvement_analysis_scheme6.xlsx`
+  with V5 MSE, V5-vs-Spectral/F/P/Base comparisons, and a `Scheme6_All`
+  sheet for every collected ablation variant.
+
+```bash
+python script/05.29_residual_spectral_gating/fill_scheme6_excel.py --require-complete
+```
 
 ## Migration Notes
 

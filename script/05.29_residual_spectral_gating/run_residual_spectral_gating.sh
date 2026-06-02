@@ -9,11 +9,15 @@ cd "${SPECTRAL_ROOT}"
 
 PYTHON=${PYTHON:-python}
 DRY_RUN=${DRY_RUN:-False}
+CONTINUE_ON_ERROR=${CONTINUE_ON_ERROR:-True}
+SKIP_EXISTING=${SKIP_EXISTING:-False}
+FAILURE_LOG=${FAILURE_LOG:-"./results/summary/scheme6_failures.tsv"}
+RUN_ID=${RUN_ID:-$(date +%Y%m%d_%H%M%S)}
 
-MODELS=${MODELS:-"DLinear"}
-DATASETS=${DATASETS:-"ETTh1"}
-PRED_LENS=${PRED_LENS:-"96"}
-SEEDS=${SEEDS:-"0"}
+MODELS=${MODELS:-"DLinear FreTS iTransformer MICN OLS PatchTST"}
+DATASETS=${DATASETS:-"ETTh1 ETTh2 ETTm1 ETTm2 exchange_rate weather electricity traffic"}
+PRED_LENS=${PRED_LENS:-"96 192 336 720"}
+SEEDS=${SEEDS:-"0 1 2"}
 ABLATIONS=${ABLATIONS:-"core no_out_proj no_global_gate"}
 
 SEQ_LEN=${SEQ_LEN:-96}
@@ -47,7 +51,65 @@ run_to_log() {
     printf ' %q' "$@"
     printf '\n'
   else
-    "$@" > "${OUTPUT}"
+    "$@" > "${OUTPUT}" 2>&1
+  fi
+}
+
+init_failure_log() {
+  mkdir -p "$(dirname "${FAILURE_LOG}")"
+  if [ ! -f "${FAILURE_LOG}" ]; then
+    printf 'run_id\ttimestamp\tstage\tmodel\tdataset\tpred_len\tseed\tvariant\texit_code\n' > "${FAILURE_LOG}"
+  fi
+}
+
+record_failure() {
+  local stage="${1}"
+  local model="${2}"
+  local dataset="${3}"
+  local pred_len="${4}"
+  local seed="${5}"
+  local variant="${6}"
+  local exit_code="${7}"
+  init_failure_log
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${RUN_ID}" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${stage}" "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}" \
+    >> "${FAILURE_LOG}"
+  echo "failed ${stage}: model=${model} dataset=${dataset} pred_len=${pred_len} seed=${seed} variant=${variant} exit_code=${exit_code}" >&2
+}
+
+run_with_recovery() {
+  local model="${1}"
+  local dataset="${2}"
+  local pred_len="${3}"
+  local seed="${4}"
+  local variant="${5}"
+  shift 5
+
+  local exit_code
+  if "$@"; then
+    return 0
+  fi
+  exit_code=$?
+  record_failure scheme6 "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}"
+  if is_true "${CONTINUE_ON_ERROR}"; then
+    return 0
+  fi
+  return "${exit_code}"
+}
+
+checkpoint_dir_for() {
+  local model="${1}"
+  local dataset="${2}"
+  local pred_len="${3}"
+  local seed="${4}"
+  echo "./checkpoints/seed${seed}/${model}/${dataset}_${pred_len}/"
+}
+
+require_checkpoint() {
+  local checkpoint_dir="${1}"
+  if ! is_true "${DRY_RUN}" && [ ! -f "${checkpoint_dir}/checkpoint_best.pth" ]; then
+    echo "Missing checkpoint: ${checkpoint_dir}/checkpoint_best.pth" >&2
+    return 1
   fi
 }
 
@@ -83,50 +145,70 @@ configure_ablation() {
   esac
 }
 
+run_scheme6_one() {
+  local model="${1}"
+  local dataset="${2}"
+  local pred_len="${3}"
+  local seed="${4}"
+  local checkpoint_dir
+  checkpoint_dir="$(checkpoint_dir_for "${model}" "${dataset}" "${pred_len}" "${seed}")"
+
+  require_checkpoint "${checkpoint_dir}" || return
+
+  RESULT_DIR="./results/COSA_SCHEME6/${VARIANT_TAG}/"
+  OUTPUT="./results/summary/COSA_SCHEME6/${VARIANT_TAG}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
+  LOG_CSV="./results/summary/COSA_SCHEME6/${VARIANT_TAG}/${model}/${dataset}/pred${pred_len}_seed${seed}_batches.csv"
+  mkdir -p "$(dirname "${OUTPUT}")"
+
+  if is_true "${SKIP_EXISTING}" && [ -f "${OUTPUT}" ]; then
+    echo "skip scheme6: ${VARIANT_TAG}/${model}/${dataset}/pred${pred_len}/seed${seed}"
+    return
+  fi
+
+  run_to_log "${PYTHON_CMD[@]}" main.py \
+    SEED "${seed}" \
+    DATA.BASE_DIR ./data/ \
+    DATA.NAME "${dataset}" \
+    DATA.SEQ_LEN "${SEQ_LEN}" \
+    DATA.LABEL_LEN "${LABEL_LEN}" \
+    DATA.PRED_LEN "${pred_len}" \
+    MODEL.NAME "${model}" \
+    MODEL.seq_len "${SEQ_LEN}" \
+    MODEL.label_len "${LABEL_LEN}" \
+    MODEL.pred_len "${pred_len}" \
+    TRAIN.ENABLE False \
+    TRAIN.CHECKPOINT_DIR "${checkpoint_dir}" \
+    TEST.ENABLE False \
+    TTA.ENABLE True \
+    TTA.COSA.BATCH_SIZE "${TTA_BATCH_SIZE}" \
+    TTA.COSA.STEPS "${TTA_STEPS}" \
+    TTA.COSA.BUFFER_CONTEXT_SIZE "${BUFFER_CONTEXT_SIZE}" \
+    TTA.COSA.SPECTRAL.MODE "${SPECTRAL_MODE}" \
+    TTA.COSA.SPECTRAL.USAGE "${SPECTRAL_USAGE}" \
+    TTA.COSA.SPECTRAL.K "${SPECTRAL_K}" \
+    TTA.COSA.SPECTRAL.HISTORY_SIZE "${SPECTRAL_HISTORY_SIZE}" \
+    TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION True \
+    TTA.COSA.SPECTRAL.GATE_MODE "${GATE_MODE}" \
+    TTA.COSA.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION "${ENABLE_REFERENCE_CONTENT_INJECTION}" \
+    TTA.COSA.SPECTRAL.USE_GLOBAL_GATE "${USE_GLOBAL_GATE}" \
+    TTA.COSA.SPECTRAL.WINDOW_TYPE "${WINDOW_TYPE}" \
+    TTA.COSA.SPECTRAL.OUT_PROJ "${OUT_PROJ}" \
+    TTA.COSA.SPECTRAL.FFT_PRECISION "${FFT_PRECISION}" \
+    TTA.COSA.SPECTRAL.FFT_LENGTH_MODE "${FFT_LENGTH_MODE}" \
+    TTA.COSA.SPECTRAL.LOG_CSV_PATH "${LOG_CSV}" \
+    RESULT_DIR "${RESULT_DIR}"
+}
+
+init_failure_log
+
 for ABLATION in "${ABLATION_LIST[@]}"; do
   configure_ablation "${ABLATION}"
   for MODEL in "${MODEL_LIST[@]}"; do
     for DATASET in "${DATASET_LIST[@]}"; do
       for RUN_PRED_LEN in "${PRED_LEN_LIST[@]}"; do
         for SEED in "${SEED_LIST[@]}"; do
-          CHECKPOINT_DIR="./checkpoints/${MODEL}/${DATASET}_${RUN_PRED_LEN}/"
-          RESULT_DIR="./results/COSA_SCHEME6/${VARIANT_TAG}/"
-          OUTPUT="./results/summary/COSA_SCHEME6/${VARIANT_TAG}/${MODEL}/${DATASET}/pred${RUN_PRED_LEN}_seed${SEED}.log"
-          LOG_CSV="./results/summary/COSA_SCHEME6/${VARIANT_TAG}/${MODEL}/${DATASET}/pred${RUN_PRED_LEN}_seed${SEED}_batches.csv"
-          mkdir -p "$(dirname "${OUTPUT}")"
-
-          run_to_log "${PYTHON_CMD[@]}" main.py \
-            SEED "${SEED}" \
-            DATA.BASE_DIR ./data/ \
-            DATA.NAME "${DATASET}" \
-            DATA.SEQ_LEN "${SEQ_LEN}" \
-            DATA.LABEL_LEN "${LABEL_LEN}" \
-            DATA.PRED_LEN "${RUN_PRED_LEN}" \
-            MODEL.NAME "${MODEL}" \
-            MODEL.seq_len "${SEQ_LEN}" \
-            MODEL.label_len "${LABEL_LEN}" \
-            MODEL.pred_len "${RUN_PRED_LEN}" \
-            TRAIN.ENABLE False \
-            TRAIN.CHECKPOINT_DIR "${CHECKPOINT_DIR}" \
-            TEST.ENABLE False \
-            TTA.ENABLE True \
-            TTA.COSA.BATCH_SIZE "${TTA_BATCH_SIZE}" \
-            TTA.COSA.STEPS "${TTA_STEPS}" \
-            TTA.COSA.BUFFER_CONTEXT_SIZE "${BUFFER_CONTEXT_SIZE}" \
-            TTA.COSA.SPECTRAL.MODE "${SPECTRAL_MODE}" \
-            TTA.COSA.SPECTRAL.USAGE "${SPECTRAL_USAGE}" \
-            TTA.COSA.SPECTRAL.K "${SPECTRAL_K}" \
-            TTA.COSA.SPECTRAL.HISTORY_SIZE "${SPECTRAL_HISTORY_SIZE}" \
-            TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION True \
-            TTA.COSA.SPECTRAL.GATE_MODE "${GATE_MODE}" \
-            TTA.COSA.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION "${ENABLE_REFERENCE_CONTENT_INJECTION}" \
-            TTA.COSA.SPECTRAL.USE_GLOBAL_GATE "${USE_GLOBAL_GATE}" \
-            TTA.COSA.SPECTRAL.WINDOW_TYPE "${WINDOW_TYPE}" \
-            TTA.COSA.SPECTRAL.OUT_PROJ "${OUT_PROJ}" \
-            TTA.COSA.SPECTRAL.FFT_PRECISION "${FFT_PRECISION}" \
-            TTA.COSA.SPECTRAL.FFT_LENGTH_MODE "${FFT_LENGTH_MODE}" \
-            TTA.COSA.SPECTRAL.LOG_CSV_PATH "${LOG_CSV}" \
-            RESULT_DIR "${RESULT_DIR}"
+          run_with_recovery "${MODEL}" "${DATASET}" "${RUN_PRED_LEN}" "${SEED}" "${VARIANT_TAG}" \
+            run_scheme6_one "${MODEL}" "${DATASET}" "${RUN_PRED_LEN}" "${SEED}"
         done
       done
     done

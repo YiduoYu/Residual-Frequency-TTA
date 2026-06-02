@@ -690,10 +690,21 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
             return float(np.mean([float(row.get(key, 0.0)) for row in direct_rows]))
 
         adaptation_count = max(self.time_counts.get("total_adaptation", 1), 1)
+        context_projection_params = (
+            sum(int(param.numel()) for param in self.context_projector.parameters())
+            if self.context_projector is not None
+            else 0
+        )
         combined_results = {
             "model": "Scheme6ResidualSpectralAdapter",
             "scheme6_statistics": {
                 "spectral_usage": self.spectral_usage,
+                "spectral_mode": getattr(self.context_builder, "mode", ""),
+                "spectral_repr": self.spectral_repr,
+                "spectral_k": int(getattr(self.direct_corrector, "spectral_k", 0)),
+                "context_dim": int(self.effective_context_dim),
+                "context_projection_params": int(context_projection_params),
+                "direct_spectral_enabled": True,
                 "spectral_gate_mode": self._direct_stats()["spectral_gate_mode"],
                 "window_type": self._direct_stats()["window_type"],
                 "spectral_out_proj": self._direct_stats()["spectral_out_proj"],
