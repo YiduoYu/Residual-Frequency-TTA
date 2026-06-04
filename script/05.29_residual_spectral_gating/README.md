@@ -62,7 +62,11 @@ explicit ablations through environment variables. They are not the default.
   `Spectral-master/checkpoints/seed<seed>/<model>/<dataset>_<pred_len>/checkpoint_best.pth`.
 - Default ablations: `core`, `no_out_proj`, `no_global_gate`.
   `core` is residual-only and writes the variant `adapter_residual_only`.
-  Optional diagnostics: `prediction_only`, `two_path`.
+  Optional diagnostics: `prediction_only`, `two_path`, `force_global_gate_open`.
+  `force_global_gate_open` keeps the residual-only path but initializes the
+  sample-level global gate open and writes
+  `adapter_residual_force_global_gate_open`, so it cannot contaminate the main
+  `adapter_residual_only` Excel rows.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
   broader runtime knobs aligned with the 5.26 baseline protocol so the measured
   change isolates the Scheme 6 adapter behavior. In particular it explicitly
@@ -99,6 +103,13 @@ Run only the conservative adapter:
 
 ```bash
 ABLATIONS="core" bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+```
+
+Run the forced-open diagnostic gate:
+
+```bash
+ABLATIONS="force_global_gate_open" \
+  bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
 Resume the full default grid without recomputing existing logs:

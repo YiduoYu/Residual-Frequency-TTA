@@ -31,6 +31,7 @@
 - Updated collector metadata and Excel fill defaults so residual-only results are labeled and selected as the main V5/Scheme6 variant.
 - Fixed a protocol mismatch in the 05.29 runner by explicitly restoring the 5.26 baseline overrides: `DATA.TRAIN_RATIO=0.7`, `DATA.TEST_RATIO=0.2`, `DATA.SCALE=standard`, `NORMALIZE=NST`, `NORM_MODULE.ENABLE=False`, and `MODEL.channel_independence=True`. Without these overrides, `update_cfg_from_dataset()` resets ETT datasets to `TRAIN_RATIO=0.6`, making Scheme6 outputs incomparable with the 5.26 Excel baseline.
 - Added `smoke_scheme6_vs_baseline.sh` and `check_scheme6_smoke_vs_baseline.py` so the active method first runs a small DLinear gate and exits with `DO_NOT_RUN_FULL_GRID` if it cannot beat the official 5.26 no-TTA baseline.
+- Added the explicit `force_global_gate_open` diagnostic ablation, writing `adapter_residual_force_global_gate_open`, to test whether the residual spectral correction has useful signal when the sample-level global gate is forced open instead of near-zero initialized.
 
 ## 2026-06-02 17:52 Asia/Shanghai
 
