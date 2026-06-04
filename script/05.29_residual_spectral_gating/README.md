@@ -16,7 +16,7 @@ is no longer the first residual-only Scheme 6 gate.
 Current main candidate:
 
 ```text
-adapter_complex_modulation_high_gate_lr
+adapter_context_plus_complex_modulation_high_gate_lr
 ```
 
 Mechanism:
@@ -36,6 +36,19 @@ The key change is from `residual spectrum -> correction` to
 `residual spectrum -> complex modulator -> prediction spectrum -> correction`.
 Because `M` is complex, Scheme6-B can learn amplitude changes and phase shifts;
 it is not limited to a sigmoid real-valued attenuation gate.
+
+The current best variant combines the original Spectral-COSA context path with
+the Scheme6-B direct complex modulation path:
+
+```text
+Spectral context adapter + residual-conditioned complex modulation
+```
+
+In the 2026-06-04 seed0 long-horizon check, this variant completed all 42
+runnable `pred336/720` points. It beat no-TTA baseline on 42/42 points with
+average MSE improvement `+21.63%`, beat COSA on 30/30 comparable points with
+`+10.99%`, and beat Spectral-COSA on 27/30 comparable points with `+2.56%`.
+The six skipped grid points were missing checkpoints, not runtime failures.
 
 ## Difference From COSA And Spectral
 
@@ -106,7 +119,8 @@ active Scheme6-B ablations use `CORRECTION_SOURCE=complex_modulation`.
   Optional diagnostics: `prediction_only`, `two_path`, `force_global_gate_open`,
   `complex_modulation`, `complex_modulation_force_open`,
   `complex_mod_desat_gate`, `complex_mod_high_gate_lr`,
-  `complex_mod_constant_gate`.
+  `complex_mod_constant_gate`,
+  `context_plus_complex_modulation_high_gate_lr`.
   `force_global_gate_open` keeps the residual-only path but initializes the
   sample-level global gate open and writes
   `adapter_residual_force_global_gate_open`, so it cannot contaminate the main
@@ -118,6 +132,9 @@ active Scheme6-B ablations use `CORRECTION_SOURCE=complex_modulation`.
   from saturation, `complex_mod_high_gate_lr` additionally gives global-gate
   parameters a higher LR multiplier, and `complex_mod_constant_gate` fixes the
   global gate at a moderate constant for diagnosis.
+  `context_plus_complex_modulation_high_gate_lr` keeps the Spectral-COSA
+  context adapter active while adding the high-LR complex modulation direct
+  correction path; this is the current main Scheme6-B candidate.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
   broader runtime knobs aligned with the 5.26 baseline protocol so the measured
   change isolates the Scheme 6 adapter behavior. In particular it explicitly
@@ -174,6 +191,13 @@ Run the complex-modulation gate diagnostics:
 
 ```bash
 ABLATIONS="complex_mod_desat_gate complex_mod_high_gate_lr complex_mod_constant_gate" \
+  bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+```
+
+Run the current context-plus-complex candidate:
+
+```bash
+ABLATIONS="context_plus_complex_modulation_high_gate_lr" \
   bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 

@@ -35,6 +35,7 @@ FORCE_OPEN_GLOBAL_GATE_INIT_BIAS=${FORCE_OPEN_GLOBAL_GATE_INIT_BIAS:-6.0}
 DESAT_GLOBAL_GATE_INIT_BIAS=${DESAT_GLOBAL_GATE_INIT_BIAS:--2.0}
 HIGH_GATE_LR_MULTIPLIER=${HIGH_GATE_LR_MULTIPLIER:-10.0}
 CONSTANT_GLOBAL_GATE=${CONSTANT_GLOBAL_GATE:-0.5}
+COMPLEX_MOD_FREQ_CUTOFF_RATIO=${COMPLEX_MOD_FREQ_CUTOFF_RATIO:-1.0}
 FFT_PRECISION=${FFT_PRECISION:-fp32}
 FFT_LENGTH_MODE=${FFT_LENGTH_MODE:-exact}
 
@@ -93,10 +94,13 @@ run_with_recovery() {
   shift 5
 
   local exit_code
-  if "$@"; then
+  set +e
+  "$@"
+  exit_code=$?
+  set -e
+  if [ "${exit_code}" -eq 0 ]; then
     return 0
   fi
-  exit_code=$?
   record_failure scheme6 "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}"
   if is_true "${CONTINUE_ON_ERROR}"; then
     return 0
@@ -132,6 +136,7 @@ configure_ablation() {
   RUN_GLOBAL_GATE_INIT_BIAS="${GLOBAL_GATE_INIT_BIAS}"
   RUN_GLOBAL_GATE_LR_MULTIPLIER=1.0
   RUN_CONSTANT_GLOBAL_GATE=-1.0
+  RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO="${COMPLEX_MOD_FREQ_CUTOFF_RATIO}"
 
   case "${1}" in
     core)
@@ -157,6 +162,13 @@ configure_ablation() {
       SPECTRAL_USAGE=context_plus_direct
       VARIANT_TAG="adapter_context_plus_residual"
       ;;
+    context_plus_complex_modulation_high_gate_lr|context_plus_complex_mod_high_gate_lr)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr"
+      ;;
     complex_modulation|complex_mod)
       CORRECTION_SOURCE=complex_modulation
       VARIANT_TAG="adapter_complex_modulation"
@@ -177,10 +189,46 @@ configure_ablation() {
       RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
       VARIANT_TAG="adapter_complex_modulation_high_gate_lr"
       ;;
+    complex_modulation_high_gate_lr_lowpass_005|complex_mod_high_gate_lr_lowpass_005)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO=0.05
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr_lowpass_005"
+      ;;
+    complex_modulation_high_gate_lr_lowpass_010|complex_mod_high_gate_lr_lowpass_010)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO=0.10
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr_lowpass_010"
+      ;;
+    complex_modulation_high_gate_lr_lowpass_020|complex_mod_high_gate_lr_lowpass_020)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO=0.20
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr_lowpass_020"
+      ;;
     complex_modulation_constant_gate|complex_mod_constant_gate|complex_mod_const_gate)
       CORRECTION_SOURCE=complex_modulation
       RUN_CONSTANT_GLOBAL_GATE="${CONSTANT_GLOBAL_GATE}"
       VARIANT_TAG="adapter_complex_modulation_constant_gate"
+      ;;
+    complex_modulation_constant_gate_005|complex_mod_constant_gate_005|complex_mod_const_gate_005)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE=0.05
+      VARIANT_TAG="adapter_complex_modulation_constant_gate_005"
+      ;;
+    complex_modulation_constant_gate_010|complex_mod_constant_gate_010|complex_mod_const_gate_010)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE=0.10
+      VARIANT_TAG="adapter_complex_modulation_constant_gate_010"
+      ;;
+    complex_modulation_constant_gate_020|complex_mod_constant_gate_020|complex_mod_const_gate_020)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE=0.20
+      VARIANT_TAG="adapter_complex_modulation_constant_gate_020"
       ;;
     force_global_gate_open|force_open)
       RUN_GLOBAL_GATE_INIT_BIAS="${FORCE_OPEN_GLOBAL_GATE_INIT_BIAS}"
@@ -249,6 +297,7 @@ run_scheme6_one() {
     TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS "${RUN_GLOBAL_GATE_INIT_BIAS}" \
     TTA.COSA.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER "${RUN_GLOBAL_GATE_LR_MULTIPLIER}" \
     TTA.COSA.SPECTRAL.CONSTANT_GLOBAL_GATE "${RUN_CONSTANT_GLOBAL_GATE}" \
+    TTA.COSA.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO "${RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO}" \
     TTA.COSA.SPECTRAL.WINDOW_TYPE "${WINDOW_TYPE}" \
     TTA.COSA.SPECTRAL.OUT_PROJ "${OUT_PROJ}" \
     TTA.COSA.SPECTRAL.FFT_PRECISION "${FFT_PRECISION}" \

@@ -169,6 +169,7 @@ _C.TTA.COSA.SPECTRAL.GLOBAL_GATE_FEATURES = 'hs,l2,low_freq_ratio'
 _C.TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS = -6.0
 _C.TTA.COSA.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER = 1.0
 _C.TTA.COSA.SPECTRAL.CONSTANT_GLOBAL_GATE = -1.0  # negative disables; [0,1] fixes the global gate
+_C.TTA.COSA.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO = 1.0  # <=1.0 keeps only low normalized frequencies for complex modulation
 _C.TTA.COSA.SPECTRAL.ENABLE_REVIN_ON_SPECTRAL_PATH = False
 _C.TTA.COSA.SPECTRAL.WINDOW_TYPE = 'hann'  # none, hann, hamming
 _C.TTA.COSA.SPECTRAL.OUT_PROJ = 'diagonal'  # none, diagonal, depthwise, dense

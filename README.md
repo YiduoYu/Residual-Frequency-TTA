@@ -7,6 +7,12 @@ modulation for online test-time adaptation. It keeps COSA's online residual
 buffer and frozen base model, but replaces the time-domain output adapter with a
 frequency-native correction operator.
 
+Current main candidate:
+
+```text
+adapter_context_plus_complex_modulation_high_gate_lr
+```
+
 ![COSA vs Scheme6-B architecture comparison](script/05.29_residual_spectral_gating/figures/0604.png)
 
 Scheme6-B uses the historical residual spectrum to generate a complex modulator
@@ -28,6 +34,11 @@ time-domain adapter, Scheme6-B directly applies a residual-conditioned complex
 operator to the forecast spectrum. For evaluation, both MSE and MAE are
 reported. The base model remains frozen; only adapter-related parameters are
 updated during test-time adaptation.
+
+The current best variant combines Spectral-COSA context features with the
+Scheme6-B direct complex modulation path. In the 2026-06-04 seed0 long-horizon
+check, it completed all 42 runnable `pred336/720` points and beat Spectral-COSA
+on 27/30 comparable points with average MSE improvement `+2.56%`.
 
 ## 2026-05-27 Experiment Design
 

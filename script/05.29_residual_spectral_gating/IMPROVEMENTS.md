@@ -35,6 +35,8 @@
 - Added the mechanism-B probe `complex_modulation`, writing `adapter_complex_modulation`, where a zero-initialized complex multiplier `M(Fr)` is generated from the residual spectrum and applied as `irFFT(M(Fr) * Fy)`. The forced-open diagnostic writes `adapter_complex_modulation_force_global_gate_open`.
 - Added gate diagnostics for mechanism B: desaturated learnable gate init, high global-gate LR multiplier, and constant moderate global gate. These diagnose whether the learned gate can open without relying on the forced-open ablation.
 - Renamed the current direction to Scheme6-B in the README and documented the distinction from COSA and COSA-Spectral: Spectral uses residual FFT as context features for a time-domain adapter, while Scheme6-B directly applies a residual-conditioned complex operator to the prediction spectrum.
+- Added the current main candidate `adapter_context_plus_complex_modulation_high_gate_lr`, which combines the Spectral-COSA context adapter with the Scheme6-B high-gate-LR direct complex modulation path. The 2026-06-04 seed0 long-horizon check completed 42/42 runnable `pred336/720` points and improved over Spectral-COSA on 27/30 comparable points with average MSE improvement `+2.56%`.
+- Added complex-modulation frequency cutoff diagnostics and small constant-gate ablations for isolating whether low-frequency complex modulation is enough to keep long-horizon gains stable.
 
 ## 2026-06-02 17:52 Asia/Shanghai
 
