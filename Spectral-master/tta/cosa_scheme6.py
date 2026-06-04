@@ -55,9 +55,11 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         n_vars,
         spectral_k=8,
         history_size=8,
+        correction_source="residual",
         gate_mode="unidirectional",
         use_global_gate=True,
         global_gate_features="hs,l2,low_freq_ratio",
+        global_gate_init_bias=-6.0,
         window_type="hann",
         out_proj="diagonal",
         min_power_ratio=0.20,
@@ -73,9 +75,11 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         self.n_freq = self.pred_len // 2 + 1
         self.spectral_k = int(spectral_k)
         self.history_size = int(history_size)
+        self.correction_source = str(correction_source).lower()
         self.gate_mode = str(gate_mode).lower()
         self.use_global_gate = bool(use_global_gate)
         self.global_gate_features = _as_list(global_gate_features) or ["hs", "l2", "low_freq_ratio"]
+        self.global_gate_init_bias = float(global_gate_init_bias)
         self.window_type = str(window_type).lower()
         self.out_proj = str(out_proj).lower()
         self.min_power_ratio = float(min_power_ratio)
@@ -85,6 +89,8 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         self.enable_revin_on_spectral_path = bool(enable_revin_on_spectral_path)
         self.eps = float(eps)
 
+        if self.correction_source not in ("prediction", "residual", "both"):
+            raise ValueError(f"Unsupported correction source: {self.correction_source}")
         if self.gate_mode not in ("fy_only", "unidirectional", "bidirectional"):
             raise ValueError(f"Unsupported gate mode: {self.gate_mode}")
         if self.window_type not in ("none", "rect", "rectangular", "hann", "hamming"):
@@ -96,7 +102,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
 
         self.gy_gain = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
         self.gy_bias = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
-        if self.gate_mode == "bidirectional":
+        if self.correction_source in ("residual", "both") or self.gate_mode == "bidirectional":
             self.gr_gain = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
             self.gr_bias = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
 
@@ -120,7 +126,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
                 if isinstance(module, nn.Linear):
                     nn.init.zeros_(module.weight)
                     nn.init.zeros_(module.bias)
-            nn.init.constant_(self.global_gate[-1].bias, -4.0)
+            nn.init.constant_(self.global_gate[-1].bias, self.global_gate_init_bias)
         else:
             self.global_gate = None
 
@@ -130,6 +136,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
     def _empty_stats(self):
         return {
             "direct_spectral_enabled": 1,
+            "correction_source": self.correction_source,
             "spectral_gate_mode": self.gate_mode,
             "window_type": self.window_type,
             "spectral_out_proj": self.out_proj,
@@ -240,17 +247,25 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             gy = torch.ones_like(fy.real)
         else:
             gy = torch.sigmoid(torch.abs(fr) * self.gy_gain.unsqueeze(0) + self.gy_bias.unsqueeze(0))
-        z = gy * fy
+        if hasattr(self, "gr_gain"):
+            gr = torch.sigmoid(torch.abs(fy) * self.gr_gain.unsqueeze(0) + self.gr_bias.unsqueeze(0))
+        else:
+            gr = torch.zeros_like(fy.real)
+
+        z = torch.zeros_like(fy)
+        if self.correction_source in ("prediction", "both"):
+            z = z + gy * fy
 
         low_freq_ratio = self._low_freq_ratio(fr)
         spectral_l2 = self._l2_energy(fr)
         reference_active = torch.zeros_like(low_freq_ratio)
-        gr_mean = 0.0
-        if self.gate_mode == "bidirectional" and self.enable_reference_content_injection:
-            gr = torch.sigmoid(torch.abs(fy) * self.gr_gain.unsqueeze(0) + self.gr_bias.unsqueeze(0))
+        if self.correction_source in ("residual", "both"):
+            reference_active = torch.ones_like(low_freq_ratio, dtype=fy.real.dtype)
+            z = z + gr * fr
+        elif self.gate_mode == "bidirectional" and self.enable_reference_content_injection:
             reference_active = (low_freq_ratio >= self.min_power_ratio).to(fy.real.dtype)
             z = z + reference_active.unsqueeze(1) * gr * fr
-            gr_mean = float(gr.detach().mean().cpu())
+        gr_mean = float(gr.detach().mean().cpu())
 
         z = self._apply_out_projection(z)
         delta = torch.fft.irfft(z, n=self.pred_len, dim=1)
@@ -268,6 +283,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         denom = max(float(y_base.numel()), 1.0)
         self.last_stats = {
             "direct_spectral_enabled": 1,
+            "correction_source": self.correction_source,
             "spectral_gate_mode": self.gate_mode,
             "window_type": self.window_type,
             "spectral_out_proj": self.out_proj,
@@ -331,9 +347,11 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
             n_vars=cfg.DATA.N_VAR,
             spectral_k=getattr(spectral_cfg, "K", 8),
             history_size=getattr(spectral_cfg, "HISTORY_SIZE", 8),
+            correction_source=getattr(spectral_cfg, "CORRECTION_SOURCE", "residual"),
             gate_mode=getattr(spectral_cfg, "GATE_MODE", "unidirectional"),
             use_global_gate=_as_bool(getattr(spectral_cfg, "USE_GLOBAL_GATE", True)),
             global_gate_features=getattr(spectral_cfg, "GLOBAL_GATE_FEATURES", "hs,l2,low_freq_ratio"),
+            global_gate_init_bias=getattr(spectral_cfg, "GLOBAL_GATE_INIT_BIAS", -6.0),
             window_type=getattr(spectral_cfg, "WINDOW_TYPE", "hann"),
             out_proj=getattr(spectral_cfg, "OUT_PROJ", "diagonal"),
             min_power_ratio=getattr(spectral_cfg, "MIN_POWER_RATIO_FOR_DIRECT", 0.20),
@@ -618,6 +636,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                     "effective_context_dim": int(self.effective_context_dim),
                     "use_context_projection": int(self.use_context_projection),
                     "direct_spectral_enabled": int(direct_stats["direct_spectral_enabled"]),
+                    "direct_correction_source": direct_stats["correction_source"],
                     "direct_spectral_gate_mode": direct_stats["spectral_gate_mode"],
                     "direct_window_type": direct_stats["window_type"],
                     "direct_out_proj": direct_stats["spectral_out_proj"],
@@ -705,6 +724,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                 "context_dim": int(self.effective_context_dim),
                 "context_projection_params": int(context_projection_params),
                 "direct_spectral_enabled": True,
+                "correction_source": self._direct_stats()["correction_source"],
                 "spectral_gate_mode": self._direct_stats()["spectral_gate_mode"],
                 "window_type": self._direct_stats()["window_type"],
                 "spectral_out_proj": self._direct_stats()["spectral_out_proj"],

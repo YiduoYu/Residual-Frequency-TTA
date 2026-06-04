@@ -28,6 +28,7 @@ BUFFER_CONTEXT_SIZE=${BUFFER_CONTEXT_SIZE:-10}
 
 SPECTRAL_K=${SPECTRAL_K:-8}
 SPECTRAL_HISTORY_SIZE=${SPECTRAL_HISTORY_SIZE:-8}
+GLOBAL_GATE_INIT_BIAS=${GLOBAL_GATE_INIT_BIAS:--6.0}
 FFT_PRECISION=${FFT_PRECISION:-fp32}
 FFT_LENGTH_MODE=${FFT_LENGTH_MODE:-exact}
 
@@ -116,6 +117,7 @@ require_checkpoint() {
 configure_ablation() {
   SPECTRAL_USAGE=direct
   SPECTRAL_MODE=concat
+  CORRECTION_SOURCE=residual
   GATE_MODE=unidirectional
   USE_GLOBAL_GATE=True
   OUT_PROJ=diagonal
@@ -124,19 +126,27 @@ configure_ablation() {
 
   case "${1}" in
     core)
-      VARIANT_TAG="adapter_core"
+      VARIANT_TAG="adapter_residual_only"
       ;;
     no_out_proj)
       OUT_PROJ=none
-      VARIANT_TAG="adapter_no_out_proj"
+      VARIANT_TAG="adapter_residual_no_out_proj"
       ;;
     no_global_gate)
       USE_GLOBAL_GATE=False
-      VARIANT_TAG="adapter_no_global_gate"
+      VARIANT_TAG="adapter_residual_no_global_gate"
+      ;;
+    prediction_only)
+      CORRECTION_SOURCE=prediction
+      VARIANT_TAG="adapter_prediction_only"
+      ;;
+    two_path)
+      CORRECTION_SOURCE=both
+      VARIANT_TAG="adapter_two_path"
       ;;
     context_plus_core)
       SPECTRAL_USAGE=context_plus_direct
-      VARIANT_TAG="adapter_context_plus_core"
+      VARIANT_TAG="adapter_context_plus_residual"
       ;;
     *)
       echo "Unknown ablation: ${1}" >&2
@@ -188,9 +198,11 @@ run_scheme6_one() {
     TTA.COSA.SPECTRAL.K "${SPECTRAL_K}" \
     TTA.COSA.SPECTRAL.HISTORY_SIZE "${SPECTRAL_HISTORY_SIZE}" \
     TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION True \
+    TTA.COSA.SPECTRAL.CORRECTION_SOURCE "${CORRECTION_SOURCE}" \
     TTA.COSA.SPECTRAL.GATE_MODE "${GATE_MODE}" \
     TTA.COSA.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION "${ENABLE_REFERENCE_CONTENT_INJECTION}" \
     TTA.COSA.SPECTRAL.USE_GLOBAL_GATE "${USE_GLOBAL_GATE}" \
+    TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS "${GLOBAL_GATE_INIT_BIAS}" \
     TTA.COSA.SPECTRAL.WINDOW_TYPE "${WINDOW_TYPE}" \
     TTA.COSA.SPECTRAL.OUT_PROJ "${OUT_PROJ}" \
     TTA.COSA.SPECTRAL.FFT_PRECISION "${FFT_PRECISION}" \

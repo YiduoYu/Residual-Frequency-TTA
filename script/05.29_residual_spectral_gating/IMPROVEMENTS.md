@@ -23,6 +23,13 @@
 - Extended `collect_scheme6_results.py` to produce per-seed, averaged, and 5.26-reference improvement CSVs for listing Scheme 6 uplift after the logs are generated.
 - Added `fill_scheme6_excel.py` to populate the official 5.26 `paper8_mse_improvement_analysis.xlsx` template with V5/Scheme6 MSE, comparison formulas, per-model/per-dataset summaries, and all collected Scheme6 ablation variants.
 
+## 2026-06-04 00:00 Asia/Shanghai
+
+- Replaced the default Scheme 6 correction source from prediction-spectrum correction (`Gy * Fy`) to residual-spectrum correction (`Gr * Fr`), so the correction is built from recent residual content rather than from a scaled copy of the base prediction.
+- Added `TTA.COSA.SPECTRAL.CORRECTION_SOURCE` with `residual`, `prediction`, and `both` modes; `core` now maps to `adapter_residual_only`, while `prediction_only` and `two_path` are explicit diagnostics.
+- Made the global correction gate identity-safe by exposing `GLOBAL_GATE_INIT_BIAS` and defaulting it to `-6.0`, so initial correction strength is close to zero.
+- Updated collector metadata and Excel fill defaults so residual-only results are labeled and selected as the main V5/Scheme6 variant.
+
 ## 2026-06-02 17:52 Asia/Shanghai
 
 - Fixed `collect_scheme6_results.py` path inference for 5.26-style `SIMPLE/<variant>/<model>/<dataset>/pred<horizon>_seed<seed>.log` logs while preserving the older `SIMPLE/<model>/<dataset>/<horizon>.txt` layout.

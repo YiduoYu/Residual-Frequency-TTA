@@ -10,12 +10,13 @@ This version deploys Scheme 6 as the conservative residual spectral gating path.
 It is wired through the main-compatible `COSA_SCHEME6` adapter path instead of
 the older `cosa_select.py` path, so future merges into `main` do not depend on a
 file that `main` has already replaced.
-The default method uses one-sided rFFT on the current base prediction and the
-historical residual profile, applies a unidirectional residual-spectrum gate
-`Gy * Fy`, then applies a sample-level global gate before residual addition.
+The default method now uses the historical residual spectrum as the correction
+content. It computes one-sided rFFT for the current base prediction and the
+residual profile, gates `F_r` with a gate generated from `|F_y|`, then applies a
+near-zero-initialized sample-level global gate before residual addition.
 
-The bidirectional reference-content path remains available only as an explicit
-ablation through environment variables. It is not the default.
+Prediction-spectrum correction and the two-path sum remain available only as
+explicit ablations through environment variables. They are not the default.
 
 ## Runner
 
@@ -26,6 +27,8 @@ ablation through environment variables. It is not the default.
   The runner is checkpoint-only and expects pretrained weights at
   `Spectral-master/checkpoints/seed<seed>/<model>/<dataset>_<pred_len>/checkpoint_best.pth`.
 - Default ablations: `core`, `no_out_proj`, `no_global_gate`.
+  `core` is residual-only and writes the variant `adapter_residual_only`.
+  Optional diagnostics: `prediction_only`, `two_path`.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
   broader training/runtime knobs at config defaults so the measured change
   isolates the Scheme 6 adapter behavior.
@@ -68,12 +71,12 @@ normalization, and main TTA flow unchanged.
 | $R_{buf} = \mathrm{MeanRecent}(R_t)$ | Reference residual profile built from recent residual history. |
 | $F_y = \mathrm{rFFT}(Y_t^{(0)}, n=L)$ | Frequency representation of the current base prediction. |
 | $F_r = \mathrm{rFFT}(w_h \odot R_{buf}, n=L)$ | Reference residual spectrum after Hann windowing. |
-| $G_y = \sigma(a_y \odot \lvert F_r \rvert + b_y)$ | One-way local spectral gate generated from the reference spectrum. |
-| $Z_t = G_y \odot F_y$ | Gated current prediction spectrum; this is the conservative correction core. |
+| $G_r = \sigma(a_r \odot \lvert F_y \rvert + b_r)$ | Residual-content gate generated from the current prediction spectrum. |
+| $Z_t = G_r \odot F_r$ | Gated residual spectrum; this is the corrected residual-only core. |
 | $Z_t' = W_o(Z_t)$ | Optional lightweight spectral projection; `core` uses diagonal `W_o`, while `no_out_proj` disables it. |
 | $\Delta Y_t = \mathrm{irFFT}(Z_t', n=L)$ | Time-domain correction recovered from the gated spectrum. |
 | $s_t = [\mathrm{mean}(Y_t^{(0)}), \lVert F_r \rVert_2, \rho_{low}(F_r)]$ | Global gate features: prediction summary, reference-spectrum energy, and low-frequency ratio. |
-| $g_t = \sigma(\mathrm{MLP}_g(s_t))$ | Global correction gate controlling how much correction is applied. |
+| $g_t = \sigma(\mathrm{MLP}_g(s_t))$ | Global correction gate controlling how much correction is applied; initialized near zero through a negative final bias. |
 | $\hat{Y}_t = Y_t^{(0)} + g_t \odot \Delta Y_t$ | Final corrected output with residual addition. |
 | $L_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)$ | Adaptation loss for updating only the Scheme 6 adapter parameters. |
 
@@ -81,14 +84,15 @@ Disabled by default:
 
 | Formula | Meaning |
 |---|---|
-| $G_r \odot F_r$ | Bidirectional reference-content injection. It is disabled by default because it directly injects residual-spectrum content and has higher negative-transfer risk. |
+| $G_y \odot F_y$ | Prediction-spectrum correction path. It is disabled by default because it can only amplify or reshape the base prediction spectrum and was empirically harmful. |
+| $G_y \odot F_y + G_r \odot F_r$ | Two-path correction. It is kept as `two_path` after residual-only smoke confirms the residual path is useful. |
 
 Minimal correction-generator change:
 
 | Version | Correction Generator |
 |---|---|
 | Before | $H_t = W [Y_t^{(0)} \mid C_t] + b$ |
-| After | $\Delta Y_t = \mathrm{irFFT}(G_y \odot \mathrm{rFFT}(Y_t^{(0)}), n=L)$ |
+| After | $\Delta Y_t = \mathrm{irFFT}(G_r \odot \mathrm{rFFT}(R_{buf}), n=L)$ |
 
 ## Collector
 

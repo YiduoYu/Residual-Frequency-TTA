@@ -439,7 +439,7 @@ def main() -> None:
     parser.add_argument("--template", default=DEFAULT_TEMPLATE, help="5.26 Excel workbook to use as template")
     parser.add_argument("--scheme6-averaged", default=DEFAULT_SCHEME6_AVERAGED, help="Scheme6 averaged CSV")
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="output workbook path")
-    parser.add_argument("--variant", default="adapter_core", help="Scheme6 variant to populate as the main V5 column")
+    parser.add_argument("--variant", default="adapter_residual_only", help="Scheme6 variant to populate as the main V5 column")
     parser.add_argument("--method-label", default="V5", help="label to use in workbook columns and comparisons")
     parser.add_argument("--require-complete", action="store_true", help="fail if any template row is missing the selected variant or a seed")
     args = parser.parse_args()
