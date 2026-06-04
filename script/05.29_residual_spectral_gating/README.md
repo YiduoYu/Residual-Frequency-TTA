@@ -1,6 +1,6 @@
 # 05.29 Scheme6-B Residual-Conditioned Complex Modulation
 
-![COSA vs Scheme6-B architecture comparison](figures/cosa_vs_scheme6b.svg)
+![COSA vs Scheme6-B architecture comparison](figures/0604.png)
 
 - Created: `2026-05-29`.
 - Previous version: legacy flat `script/` files from `3-versions-final-next-all-in-spectral`.
