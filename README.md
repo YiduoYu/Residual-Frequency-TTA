@@ -1,24 +1,33 @@
 # COSA to Spectral Experiment Project
 
-## Method Overview: Spectral-COSA
+## Method Overview: Scheme6-B
 
-Spectral-COSA extends COSA by adding residual-profile spectral context to the output-space adapter.
+The current branch focuses on Scheme6-B: residual-conditioned complex frequency
+modulation for online test-time adaptation. It keeps COSA's online residual
+buffer and frozen base model, but replaces the time-domain output adapter with a
+frequency-native correction operator.
 
-![Architecture of Spectral COSA](architecture_of_spectral.drawio.png)
+![COSA vs Scheme6-B architecture comparison](script/05.29_residual_spectral_gating/figures/0604.png)
+
+Scheme6-B uses the historical residual spectrum to generate a complex modulator
+for the current prediction spectrum:
 
 | Formula | Meaning |
 |---|---|
 | $Y_t^{(0)} = f_{\theta}(X_t)$ | Frozen base prediction from the pretrained backbone. |
 | $R_t = Y_t - Y_t^{(0)}$ | Residual profile / base prediction error. |
-| $C_t^{spectral} = [\mathrm{Re}(\hat{R}), \mathrm{Im}(\hat{R}), p, \mu_R, \sigma_R]$ | Residual-profile FFT features and residual statistics. |
-| $C_t = \mathrm{Proj}([C_t^{mean} \mid C_t^{spectral}])$ | Projected context from mean-history and spectral context. |
-| $X_t^{(a)} = [Y_t^{(0)} \mid C_t]$ | Adapter input. |
-| $H_t = W X_t^{(a)} + b$ | Linear adapter correction. |
-| $g_t = \tanh(g)$ | Gated correction strength. |
-| $\hat{Y}_t = Y_t^{(0)} + g_t \odot H_t$ | Corrected output. |
-| $\mathcal{L}_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)$ | Adaptation loss for updating the adapter. |
+| $F_y = \mathrm{FFT}(Y_t^{(0)})$ | Frequency representation of the current prediction. |
+| $F_r = \mathrm{FFT}(R_{buf})$ | Frequency representation of recent residual reference. |
+| $M = M_{\theta}(F_r)$ | Residual-conditioned complex modulation operator. |
+| $\Delta Y_t = \mathrm{iFFT}(M \odot F_y)$ | Frequency-native correction returned to time domain. |
+| $\hat{Y}_t = Y_t^{(0)} + g_t \odot \Delta Y_t$ | Corrected output with global gate. |
+| $\mathcal{L}_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)$ | Adaptation loss for updating only Scheme6-B adapter parameters. |
 
-For evaluation, both MSE and MAE are reported. The base model remains frozen; only adapter-related parameters are updated during test-time adaptation.
+Compared with COSA-Spectral, which feeds residual FFT features into a
+time-domain adapter, Scheme6-B directly applies a residual-conditioned complex
+operator to the forecast spectrum. For evaluation, both MSE and MAE are
+reported. The base model remains frozen; only adapter-related parameters are
+updated during test-time adaptation.
 
 ## 2026-05-27 Experiment Design
 
