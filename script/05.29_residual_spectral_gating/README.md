@@ -30,8 +30,12 @@ explicit ablations through environment variables. They are not the default.
   `core` is residual-only and writes the variant `adapter_residual_only`.
   Optional diagnostics: `prediction_only`, `two_path`.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
-  broader training/runtime knobs at config defaults so the measured change
-  isolates the Scheme 6 adapter behavior.
+  broader runtime knobs aligned with the 5.26 baseline protocol so the measured
+  change isolates the Scheme 6 adapter behavior. In particular it explicitly
+  sets `DATA.TRAIN_RATIO=0.7`, `DATA.TEST_RATIO=0.2`, `DATA.SCALE=standard`,
+  `NORMALIZE=NST`, `NORM_MODULE.ENABLE=False`, and
+  `MODEL.channel_independence=True`; do not remove these overrides because
+  dataset-specific defaults otherwise reset ETT splits to `0.6`.
 - Failed runs are appended to `Spectral-master/results/summary/scheme6_failures.tsv`.
   Set `CONTINUE_ON_ERROR=False` to stop at the first failure, or
   `SKIP_EXISTING=True` to resume without rerunning completed logs.
@@ -42,6 +46,20 @@ Useful conservative smoke test:
 DRY_RUN=True MODELS="DLinear" DATASETS="ETTh1" PRED_LENS="96" SEEDS="0 1 2" \
   ABLATIONS="core" bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
+
+Gate the active residual-only method before launching the full grid:
+
+```bash
+bash script/05.29_residual_spectral_gating/smoke_scheme6_vs_baseline.sh
+```
+
+By default this runs `DLinear` on `ETTh2 ETTm2 exchange_rate electricity`,
+`pred96`, and seeds `0 1 2`, then compares averaged MSE against the official
+5.26 `baseline_no_tta` rows. The script exits nonzero and prints
+`DO_NOT_RUN_FULL_GRID` unless at least one case beats baseline and the average
+MSE improvement is positive. Override `MIN_BASELINE_WINS`,
+`MIN_AVG_IMPROVEMENT_PCT`, `MODELS`, `DATASETS`, `PRED_LENS`, or `SEEDS` for a
+different gate.
 
 Run only the conservative adapter:
 

@@ -22,6 +22,8 @@ ABLATIONS=${ABLATIONS:-"core no_out_proj no_global_gate"}
 
 SEQ_LEN=${SEQ_LEN:-96}
 LABEL_LEN=${LABEL_LEN:-48}
+TRAIN_RATIO=${TRAIN_RATIO:-0.7}
+TEST_RATIO=${TEST_RATIO:-0.2}
 TTA_BATCH_SIZE=${TTA_BATCH_SIZE:-48}
 TTA_STEPS=${TTA_STEPS:-3}
 BUFFER_CONTEXT_SIZE=${BUFFER_CONTEXT_SIZE:-10}
@@ -182,10 +184,16 @@ run_scheme6_one() {
     DATA.SEQ_LEN "${SEQ_LEN}" \
     DATA.LABEL_LEN "${LABEL_LEN}" \
     DATA.PRED_LEN "${pred_len}" \
+    DATA.TRAIN_RATIO "${TRAIN_RATIO}" \
+    DATA.TEST_RATIO "${TEST_RATIO}" \
+    DATA.SCALE standard \
+    NORMALIZE NST \
+    NORM_MODULE.ENABLE False \
     MODEL.NAME "${model}" \
     MODEL.seq_len "${SEQ_LEN}" \
     MODEL.label_len "${LABEL_LEN}" \
     MODEL.pred_len "${pred_len}" \
+    MODEL.channel_independence True \
     TRAIN.ENABLE False \
     TRAIN.CHECKPOINT_DIR "${checkpoint_dir}" \
     TEST.ENABLE False \

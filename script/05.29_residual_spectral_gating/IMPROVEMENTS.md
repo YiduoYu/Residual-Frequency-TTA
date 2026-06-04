@@ -29,6 +29,8 @@
 - Added `TTA.COSA.SPECTRAL.CORRECTION_SOURCE` with `residual`, `prediction`, and `both` modes; `core` now maps to `adapter_residual_only`, while `prediction_only` and `two_path` are explicit diagnostics.
 - Made the global correction gate identity-safe by exposing `GLOBAL_GATE_INIT_BIAS` and defaulting it to `-6.0`, so initial correction strength is close to zero.
 - Updated collector metadata and Excel fill defaults so residual-only results are labeled and selected as the main V5/Scheme6 variant.
+- Fixed a protocol mismatch in the 05.29 runner by explicitly restoring the 5.26 baseline overrides: `DATA.TRAIN_RATIO=0.7`, `DATA.TEST_RATIO=0.2`, `DATA.SCALE=standard`, `NORMALIZE=NST`, `NORM_MODULE.ENABLE=False`, and `MODEL.channel_independence=True`. Without these overrides, `update_cfg_from_dataset()` resets ETT datasets to `TRAIN_RATIO=0.6`, making Scheme6 outputs incomparable with the 5.26 Excel baseline.
+- Added `smoke_scheme6_vs_baseline.sh` and `check_scheme6_smoke_vs_baseline.py` so the active method first runs a small DLinear gate and exits with `DO_NOT_RUN_FULL_GRID` if it cannot beat the official 5.26 no-TTA baseline.
 
 ## 2026-06-02 17:52 Asia/Shanghai
 
