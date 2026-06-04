@@ -146,6 +146,8 @@ def collect(root: Path) -> list[dict]:
             "scheme6_fft_precision": scheme6.get("fft_precision", ""),
             "scheme6_fft_length_mode": scheme6.get("fft_length_mode", ""),
             "scheme6_use_global_gate": scheme6.get("use_global_gate", ""),
+            "scheme6_constant_global_gate": scheme6.get("constant_global_gate", ""),
+            "scheme6_global_gate_lr_multiplier": scheme6.get("global_gate_lr_multiplier", ""),
             "scheme6_reference_content_injection": scheme6.get("reference_content_injection", ""),
             "scheme6_global_gate_mean": scheme6.get("global_gate_mean", ""),
             "scheme6_local_gate_mean": scheme6.get("local_gate_mean", ""),
@@ -153,6 +155,8 @@ def collect(root: Path) -> list[dict]:
             "scheme6_spectral_l2_mean": scheme6.get("spectral_l2_mean", ""),
             "scheme6_direct_delta_norm_mean": scheme6.get("direct_delta_norm_mean", ""),
             "scheme6_reference_content_active_ratio": scheme6.get("reference_content_active_ratio", ""),
+            "scheme6_complex_mod_magnitude_mean": scheme6.get("complex_mod_magnitude_mean", ""),
+            "scheme6_complex_mod_phase_abs_mean": scheme6.get("complex_mod_phase_abs_mean", ""),
             "context_projection_params": selective.get(
                 "context_projection_params",
                 scheme6.get(
@@ -194,6 +198,8 @@ PER_SEED_FIELDS = [
     "scheme6_fft_precision",
     "scheme6_fft_length_mode",
     "scheme6_use_global_gate",
+    "scheme6_constant_global_gate",
+    "scheme6_global_gate_lr_multiplier",
     "scheme6_reference_content_injection",
     "scheme6_global_gate_mean",
     "scheme6_local_gate_mean",
@@ -201,6 +207,8 @@ PER_SEED_FIELDS = [
     "scheme6_spectral_l2_mean",
     "scheme6_direct_delta_norm_mean",
     "scheme6_reference_content_active_ratio",
+    "scheme6_complex_mod_magnitude_mean",
+    "scheme6_complex_mod_phase_abs_mean",
     "context_projection_params",
     "log_path",
 ]

@@ -32,6 +32,9 @@
 - Fixed a protocol mismatch in the 05.29 runner by explicitly restoring the 5.26 baseline overrides: `DATA.TRAIN_RATIO=0.7`, `DATA.TEST_RATIO=0.2`, `DATA.SCALE=standard`, `NORMALIZE=NST`, `NORM_MODULE.ENABLE=False`, and `MODEL.channel_independence=True`. Without these overrides, `update_cfg_from_dataset()` resets ETT datasets to `TRAIN_RATIO=0.6`, making Scheme6 outputs incomparable with the 5.26 Excel baseline.
 - Added `smoke_scheme6_vs_baseline.sh` and `check_scheme6_smoke_vs_baseline.py` so the active method first runs a small DLinear gate and exits with `DO_NOT_RUN_FULL_GRID` if it cannot beat the official 5.26 no-TTA baseline.
 - Added the explicit `force_global_gate_open` diagnostic ablation, writing `adapter_residual_force_global_gate_open`, to test whether the residual spectral correction has useful signal when the sample-level global gate is forced open instead of near-zero initialized.
+- Added the mechanism-B probe `complex_modulation`, writing `adapter_complex_modulation`, where a zero-initialized complex multiplier `M(Fr)` is generated from the residual spectrum and applied as `irFFT(M(Fr) * Fy)`. The forced-open diagnostic writes `adapter_complex_modulation_force_global_gate_open`.
+- Added gate diagnostics for mechanism B: desaturated learnable gate init, high global-gate LR multiplier, and constant moderate global gate. These diagnose whether the learned gate can open without relying on the forced-open ablation.
+- Renamed the current direction to Scheme6-B in the README and documented the distinction from COSA and COSA-Spectral: Spectral uses residual FFT as context features for a time-domain adapter, while Scheme6-B directly applies a residual-conditioned complex operator to the prediction spectrum.
 
 ## 2026-06-02 17:52 Asia/Shanghai
 

@@ -32,6 +32,9 @@ SPECTRAL_K=${SPECTRAL_K:-8}
 SPECTRAL_HISTORY_SIZE=${SPECTRAL_HISTORY_SIZE:-8}
 GLOBAL_GATE_INIT_BIAS=${GLOBAL_GATE_INIT_BIAS:--6.0}
 FORCE_OPEN_GLOBAL_GATE_INIT_BIAS=${FORCE_OPEN_GLOBAL_GATE_INIT_BIAS:-6.0}
+DESAT_GLOBAL_GATE_INIT_BIAS=${DESAT_GLOBAL_GATE_INIT_BIAS:--2.0}
+HIGH_GATE_LR_MULTIPLIER=${HIGH_GATE_LR_MULTIPLIER:-10.0}
+CONSTANT_GLOBAL_GATE=${CONSTANT_GLOBAL_GATE:-0.5}
 FFT_PRECISION=${FFT_PRECISION:-fp32}
 FFT_LENGTH_MODE=${FFT_LENGTH_MODE:-exact}
 
@@ -127,6 +130,8 @@ configure_ablation() {
   WINDOW_TYPE=hann
   ENABLE_REFERENCE_CONTENT_INJECTION=False
   RUN_GLOBAL_GATE_INIT_BIAS="${GLOBAL_GATE_INIT_BIAS}"
+  RUN_GLOBAL_GATE_LR_MULTIPLIER=1.0
+  RUN_CONSTANT_GLOBAL_GATE=-1.0
 
   case "${1}" in
     core)
@@ -151,6 +156,31 @@ configure_ablation() {
     context_plus_core)
       SPECTRAL_USAGE=context_plus_direct
       VARIANT_TAG="adapter_context_plus_residual"
+      ;;
+    complex_modulation|complex_mod)
+      CORRECTION_SOURCE=complex_modulation
+      VARIANT_TAG="adapter_complex_modulation"
+      ;;
+    complex_modulation_force_open|complex_mod_force_open)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${FORCE_OPEN_GLOBAL_GATE_INIT_BIAS}"
+      VARIANT_TAG="adapter_complex_modulation_force_global_gate_open"
+      ;;
+    complex_modulation_desat_gate|complex_mod_desat_gate|complex_mod_desat)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      VARIANT_TAG="adapter_complex_modulation_desat_gate"
+      ;;
+    complex_modulation_high_gate_lr|complex_mod_high_gate_lr)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr"
+      ;;
+    complex_modulation_constant_gate|complex_mod_constant_gate|complex_mod_const_gate)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE="${CONSTANT_GLOBAL_GATE}"
+      VARIANT_TAG="adapter_complex_modulation_constant_gate"
       ;;
     force_global_gate_open|force_open)
       RUN_GLOBAL_GATE_INIT_BIAS="${FORCE_OPEN_GLOBAL_GATE_INIT_BIAS}"
@@ -217,6 +247,8 @@ run_scheme6_one() {
     TTA.COSA.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION "${ENABLE_REFERENCE_CONTENT_INJECTION}" \
     TTA.COSA.SPECTRAL.USE_GLOBAL_GATE "${USE_GLOBAL_GATE}" \
     TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS "${RUN_GLOBAL_GATE_INIT_BIAS}" \
+    TTA.COSA.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER "${RUN_GLOBAL_GATE_LR_MULTIPLIER}" \
+    TTA.COSA.SPECTRAL.CONSTANT_GLOBAL_GATE "${RUN_CONSTANT_GLOBAL_GATE}" \
     TTA.COSA.SPECTRAL.WINDOW_TYPE "${WINDOW_TYPE}" \
     TTA.COSA.SPECTRAL.OUT_PROJ "${OUT_PROJ}" \
     TTA.COSA.SPECTRAL.FFT_PRECISION "${FFT_PRECISION}" \

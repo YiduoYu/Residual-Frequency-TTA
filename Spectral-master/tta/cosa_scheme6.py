@@ -60,6 +60,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         use_global_gate=True,
         global_gate_features="hs,l2,low_freq_ratio",
         global_gate_init_bias=-6.0,
+        constant_global_gate=-1.0,
         window_type="hann",
         out_proj="diagonal",
         min_power_ratio=0.20,
@@ -80,6 +81,8 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         self.use_global_gate = bool(use_global_gate)
         self.global_gate_features = _as_list(global_gate_features) or ["hs", "l2", "low_freq_ratio"]
         self.global_gate_init_bias = float(global_gate_init_bias)
+        constant_global_gate = float(constant_global_gate)
+        self.constant_global_gate = constant_global_gate if 0.0 <= constant_global_gate <= 1.0 else None
         self.window_type = str(window_type).lower()
         self.out_proj = str(out_proj).lower()
         self.min_power_ratio = float(min_power_ratio)
@@ -89,7 +92,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         self.enable_revin_on_spectral_path = bool(enable_revin_on_spectral_path)
         self.eps = float(eps)
 
-        if self.correction_source not in ("prediction", "residual", "both"):
+        if self.correction_source not in ("prediction", "residual", "both", "complex_modulation"):
             raise ValueError(f"Unsupported correction source: {self.correction_source}")
         if self.gate_mode not in ("fy_only", "unidirectional", "bidirectional"):
             raise ValueError(f"Unsupported gate mode: {self.gate_mode}")
@@ -105,6 +108,13 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         if self.correction_source in ("residual", "both") or self.gate_mode == "bidirectional":
             self.gr_gain = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
             self.gr_bias = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
+        if self.correction_source == "complex_modulation":
+            # Per-frequency residual-conditioned complex multiplier:
+            # M(Fr) = W [Re(Fr), Im(Fr), |Fr|, freq] + b, initialized to zero.
+            # The correction is irFFT(M(Fr) * Fy), so the initial model is an
+            # exact identity while adaptation can learn amplitude and phase.
+            self.complex_mod_weight = nn.Parameter(torch.zeros(self.n_freq, self.n_vars, 4, 2))
+            self.complex_mod_bias = nn.Parameter(torch.zeros(self.n_freq, self.n_vars, 2))
 
         if self.out_proj in ("diagonal", "depthwise"):
             self.out_gain = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
@@ -114,7 +124,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             nn.init.eye_(self.real_proj.weight)
             nn.init.eye_(self.imag_proj.weight)
 
-        if self.use_global_gate:
+        if self.use_global_gate and self.constant_global_gate is None:
             input_dim = len(self.global_gate_features)
             hidden_dim = max(4, min(16, input_dim * 4))
             self.global_gate = nn.Sequential(
@@ -143,6 +153,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             "fft_precision": self.fft_precision,
             "fft_length_mode": self.fft_length_mode,
             "use_global_gate": int(self.use_global_gate),
+            "constant_global_gate": "" if self.constant_global_gate is None else self.constant_global_gate,
             "enable_reference_content_injection": int(self.enable_reference_content_injection),
             "global_gate_mean": 0.0,
             "local_gate_mean": 0.0,
@@ -151,6 +162,8 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             "spectral_l2_mean": 0.0,
             "direct_delta_norm": 0.0,
             "reference_content_active_ratio": 0.0,
+            "complex_mod_magnitude_mean": 0.0,
+            "complex_mod_phase_abs_mean": 0.0,
         }
 
     def _make_window(self):
@@ -216,6 +229,21 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         imag = self.imag_proj(z.imag)
         return torch.complex(real, imag)
 
+    def _complex_modulation(self, fr):
+        residual_scale = torch.sqrt(
+            torch.mean(torch.abs(fr[:, 1:, :]).pow(2), dim=1, keepdim=True).clamp_min(self.eps)
+        )
+        fr_norm = fr / residual_scale
+        freq_coord = torch.linspace(0.0, 1.0, self.n_freq, dtype=fr.real.dtype, device=fr.device)
+        freq_coord = freq_coord.view(1, self.n_freq, 1).expand(fr.shape[0], -1, self.n_vars)
+        features = torch.stack(
+            [fr_norm.real, fr_norm.imag, torch.abs(fr_norm), freq_coord],
+            dim=-1,
+        )
+        raw = torch.einsum("bfvc,fvco->bfvo", features, self.complex_mod_weight)
+        raw = raw + self.complex_mod_bias.unsqueeze(0)
+        return torch.complex(raw[..., 0], raw[..., 1])
+
     def forward(self, y0, sample_history):
         if y0.dim() != 3:
             raise ValueError(f"Scheme 6 expects [B, L, V], got {tuple(y0.shape)}")
@@ -259,9 +287,17 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         low_freq_ratio = self._low_freq_ratio(fr)
         spectral_l2 = self._l2_energy(fr)
         reference_active = torch.zeros_like(low_freq_ratio)
+        mod_magnitude_mean = 0.0
+        mod_phase_abs_mean = 0.0
         if self.correction_source in ("residual", "both"):
             reference_active = torch.ones_like(low_freq_ratio, dtype=fy.real.dtype)
             z = z + gr * fr
+        elif self.correction_source == "complex_modulation":
+            modulation = self._complex_modulation(fr)
+            reference_active = torch.ones_like(low_freq_ratio, dtype=fy.real.dtype)
+            z = z + modulation * fy
+            mod_magnitude_mean = float(torch.abs(modulation).detach().mean().cpu())
+            mod_phase_abs_mean = float(torch.angle(modulation).detach().abs().mean().cpu())
         elif self.gate_mode == "bidirectional" and self.enable_reference_content_injection:
             reference_active = (low_freq_ratio >= self.min_power_ratio).to(fy.real.dtype)
             z = z + reference_active.unsqueeze(1) * gr * fr
@@ -270,7 +306,14 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         z = self._apply_out_projection(z)
         delta = torch.fft.irfft(z, n=self.pred_len, dim=1)
 
-        if self.global_gate is None:
+        if self.constant_global_gate is not None:
+            global_gate = torch.full(
+                (batch_size, self.n_vars),
+                self.constant_global_gate,
+                dtype=delta.dtype,
+                device=delta.device,
+            )
+        elif self.global_gate is None:
             global_gate = torch.ones(batch_size, self.n_vars, dtype=delta.dtype, device=delta.device)
         else:
             gate_features = self._global_gate_features(y, low_freq_ratio, spectral_l2)
@@ -290,6 +333,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             "fft_precision": self.fft_precision,
             "fft_length_mode": self.fft_length_mode,
             "use_global_gate": int(self.use_global_gate),
+            "constant_global_gate": "" if self.constant_global_gate is None else self.constant_global_gate,
             "enable_reference_content_injection": int(self.enable_reference_content_injection),
             "global_gate_mean": float(global_gate.detach().mean().cpu()),
             "local_gate_mean": float(gy.detach().mean().cpu()),
@@ -298,6 +342,8 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             "spectral_l2_mean": float(spectral_l2.detach().mean().cpu()),
             "direct_delta_norm": float(torch.norm((y_hat - y_base).detach()).cpu() / denom),
             "reference_content_active_ratio": float(reference_active.detach().mean().cpu()),
+            "complex_mod_magnitude_mean": mod_magnitude_mean,
+            "complex_mod_phase_abs_mean": mod_phase_abs_mean,
         }
         return y_hat.to(dtype=original_dtype)
 
@@ -352,6 +398,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
             use_global_gate=_as_bool(getattr(spectral_cfg, "USE_GLOBAL_GATE", True)),
             global_gate_features=getattr(spectral_cfg, "GLOBAL_GATE_FEATURES", "hs,l2,low_freq_ratio"),
             global_gate_init_bias=getattr(spectral_cfg, "GLOBAL_GATE_INIT_BIAS", -6.0),
+            constant_global_gate=getattr(spectral_cfg, "CONSTANT_GLOBAL_GATE", -1.0),
             window_type=getattr(spectral_cfg, "WINDOW_TYPE", "hann"),
             out_proj=getattr(spectral_cfg, "OUT_PROJ", "diagonal"),
             min_power_ratio=getattr(spectral_cfg, "MIN_POWER_RATIO_FOR_DIRECT", 0.20),
@@ -367,10 +414,11 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
 
         self.batch_logs = []
         self.scheme6_log_csv_path = getattr(spectral_cfg, "LOG_CSV_PATH", "")
+        self.global_gate_lr_multiplier = float(getattr(spectral_cfg, "GLOBAL_GATE_LR_MULTIPLIER", 1.0))
         self._freeze_all_model_params()
         self._unfreeze_adapter_params()
         self._adapter_params = self._adapter_trainable_parameters()
-        self.optimizer = get_optimizer(self._adapter_params, cfg.TTA)
+        self.optimizer = get_optimizer(self._optimizer_param_groups(), cfg.TTA)
         self.model_state, self.optimizer_state = self._copy_model_and_optimizer()
 
     def _uses_context_adapter(self):
@@ -385,6 +433,30 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
         if getattr(self, "direct_corrector", None) is not None:
             params.extend(self.direct_corrector.parameters())
         return params
+
+    def _optimizer_param_groups(self):
+        if abs(self.global_gate_lr_multiplier - 1.0) < 1e-12:
+            return self._adapter_params
+
+        gate = getattr(getattr(self, "direct_corrector", None), "global_gate", None)
+        if gate is None:
+            return self._adapter_params
+
+        gate_params = [param for param in gate.parameters() if param.requires_grad]
+        if not gate_params:
+            return self._adapter_params
+
+        gate_param_ids = {id(param) for param in gate_params}
+        other_params = [param for param in self._adapter_params if id(param) not in gate_param_ids]
+        groups = []
+        if other_params:
+            groups.append({"params": other_params, "lr_multiplier": 1.0})
+        groups.append({
+            "params": gate_params,
+            "lr": self.cfg.TTA.SOLVER.BASE_LR * self.global_gate_lr_multiplier,
+            "lr_multiplier": self.global_gate_lr_multiplier,
+        })
+        return groups
 
     def _unfreeze_adapter_params(self):
         if hasattr(self, "output_adapter"):
@@ -592,7 +664,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                         if self.adaptive_lr and self.fast_adaptation:
                             current_lr = self._adaptive_learning_rate(loss.item(), step, batch_idx)
                             for param_group in self.optimizer.param_groups:
-                                param_group["lr"] = current_lr
+                                param_group["lr"] = current_lr * float(param_group.get("lr_multiplier", 1.0))
 
                         backward_start = time.time()
                         self.optimizer.zero_grad()
@@ -643,6 +715,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                     "direct_fft_precision": direct_stats["fft_precision"],
                     "direct_fft_length_mode": direct_stats["fft_length_mode"],
                     "direct_use_global_gate": int(direct_stats["use_global_gate"]),
+                    "direct_constant_global_gate": direct_stats.get("constant_global_gate", ""),
                     "direct_reference_content_injection": int(direct_stats["enable_reference_content_injection"]),
                     "direct_global_gate_mean": float(direct_stats["global_gate_mean"]),
                     "direct_local_gate_mean": float(direct_stats["local_gate_mean"]),
@@ -651,6 +724,8 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                     "direct_spectral_l2_mean": float(direct_stats["spectral_l2_mean"]),
                     "direct_delta_norm": float(direct_stats["direct_delta_norm"]),
                     "direct_reference_content_active_ratio": float(direct_stats["reference_content_active_ratio"]),
+                    "direct_complex_mod_magnitude_mean": float(direct_stats.get("complex_mod_magnitude_mean", 0.0)),
+                    "direct_complex_mod_phase_abs_mean": float(direct_stats.get("complex_mod_phase_abs_mean", 0.0)),
                     "residual": residual,
                     "gradient_steps": gradient_steps,
                     "mse": float(np.mean(mse)),
@@ -731,6 +806,8 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                 "fft_precision": self._direct_stats()["fft_precision"],
                 "fft_length_mode": self._direct_stats()["fft_length_mode"],
                 "use_global_gate": bool(self._direct_stats()["use_global_gate"]),
+                "constant_global_gate": self._direct_stats().get("constant_global_gate", ""),
+                "global_gate_lr_multiplier": self.global_gate_lr_multiplier,
                 "reference_content_injection": bool(self._direct_stats()["enable_reference_content_injection"]),
                 "global_gate_mean": mean_direct("direct_global_gate_mean"),
                 "local_gate_mean": mean_direct("direct_local_gate_mean"),
@@ -738,6 +815,8 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                 "spectral_l2_mean": mean_direct("direct_spectral_l2_mean"),
                 "direct_delta_norm_mean": mean_direct("direct_delta_norm"),
                 "reference_content_active_ratio": mean_direct("direct_reference_content_active_ratio"),
+                "complex_mod_magnitude_mean": mean_direct("direct_complex_mod_magnitude_mean"),
+                "complex_mod_phase_abs_mean": mean_direct("direct_complex_mod_phase_abs_mean"),
             },
             "time_statistics": {
                 "adapter_operations": {

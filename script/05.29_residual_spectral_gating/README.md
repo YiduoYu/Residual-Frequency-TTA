@@ -1,14 +1,58 @@
-# 05.29 Residual Spectral Gating
+# 05.29 Scheme6-B Residual-Conditioned Complex Modulation
 
 - Created: `2026-05-29`.
 - Previous version: legacy flat `script/` files from `3-versions-final-next-all-in-spectral`.
-- Status: `deprecated / halted after 2026-06-04 smoke gate`.
+- Status: `active Scheme6-B probe; old residual-only Scheme 6 halted`.
 
-## 2026-06-04 Shutdown Decision
+## Current Direction
 
-This branch is no longer the active Scheme 6 direction. Do not launch the full
-`6 models x 8 datasets x 4 horizons x 3 seeds` grid from this version, and do
-not use its partial `adapter_residual_only` outputs to fill the paper Excel.
+The active direction is now Scheme6-B: residual-conditioned complex frequency
+modulation. It still reuses COSA's online TTA loop and residual/history buffer,
+but the correction module is no longer the original time-domain COSA adapter and
+is no longer the first residual-only Scheme 6 gate.
+
+Current main candidate:
+
+```text
+adapter_complex_modulation_high_gate_lr
+```
+
+Mechanism:
+
+| Step | Operation |
+|---|---|
+| Base prediction | $y = f_\theta(x)$ |
+| Prediction spectrum | $F_y = \mathrm{FFT}(y)$ |
+| Residual reference | $r = \mathrm{MeanRecent}(y_{true} - y)$ |
+| Residual spectrum | $F_r = \mathrm{FFT}(r)$ |
+| Complex modulator | $M = M_\theta(F_r)$ |
+| Spectral correction | $Z = M(F_r) \odot F_y$ |
+| Time-domain delta | $\Delta y = \mathrm{iFFT}(Z)$ |
+| Final output | $\hat{y} = y + g \cdot \Delta y$ |
+
+The key change is from `residual spectrum -> correction` to
+`residual spectrum -> complex modulator -> prediction spectrum -> correction`.
+Because `M` is complex, Scheme6-B can learn amplitude changes and phase shifts;
+it is not limited to a sigmoid real-valued attenuation gate.
+
+## Difference From COSA And Spectral
+
+| Method | FFT Usage | Correction Path |
+|---|---|---|
+| COSA | No native FFT correction | Time-domain adapter maps prediction plus context/residual buffer to corrected output. |
+| COSA-Spectral | FFT summarizes residual history into spectral context features | Frequency features are appended to context, but final correction is still produced by the time-domain `SimpleOutputAdapter`. |
+| Scheme6-B | Uses both $F_y=\mathrm{FFT}(y)$ and $F_r=\mathrm{FFT}(r)$ | Residual spectrum generates a complex modulator $M(F_r)$ that directly modulates the prediction spectrum before inverse FFT reconstruction. |
+
+In short, Spectral is spectral feature augmentation for COSA, while Scheme6-B is
+frequency-native correction. The residual spectrum parameterizes a complex
+operator applied to the forecast spectrum, instead of merely providing extra
+features to a time-domain adapter.
+
+## Old Residual-Only Shutdown Decision
+
+The old residual-only Scheme 6 path is no longer active. Do not launch the full
+`6 models x 8 datasets x 4 horizons x 3 seeds` grid for `adapter_residual_only`,
+and do not use its partial outputs to fill the paper Excel.
 
 Remote run state and result hygiene:
 
@@ -32,29 +76,24 @@ The forced-open diagnostic confirms that the poor result is not merely caused by
 an over-conservative global gate. The core run had `global_gate_mean` around
 `0.003-0.011`; the forced-open run reached `0.96-0.99`, and
 `direct_delta_norm` increased by roughly two orders of magnitude, but MSE became
-worse. This indicates the current residual spectral correction direction is
-harmful or at best too unstable, so the branch is abandoned in favor of a new
-scheme.
+worse. This indicates the residual-only correction direction is harmful or at
+best too unstable, so it was abandoned in favor of Scheme6-B.
 
 ## Change Overview
 
-This version attempted Scheme 6 as the conservative residual spectral gating path.
+This folder keeps the conservative residual-only Scheme 6 history and now hosts
+the Scheme6-B complex-modulation probe.
 It is wired through the main-compatible `COSA_SCHEME6` adapter path instead of
 the older `cosa_select.py` path, so future merges into `main` do not depend on a
 file that `main` has already replaced.
-The default method now uses the historical residual spectrum as the correction
-content. It computes one-sided rFFT for the current base prediction and the
-residual profile, gates `F_r` with a gate generated from `|F_y|`, then applies a
-near-zero-initialized sample-level global gate before residual addition.
-
-Prediction-spectrum correction and the two-path sum remain available only as
-explicit ablations through environment variables. They are not the default.
+The historical residual-only method remains available for provenance, but the
+active Scheme6-B ablations use `CORRECTION_SOURCE=complex_modulation`.
 
 ## Runner
 
 - Entrypoint: `run_residual_spectral_gating.sh`
-- Status: kept for provenance and reproduction only; do not use for full-grid
-  production results.
+- Status: active for Scheme6-B smoke/diagnostic runs. Do not run the old
+  residual-only full grid.
 - Result family: `COSA_SCHEME6`
 - Adapter: `Spectral-master/tta/cosa_scheme6.py`
 - Default scope: the 5.26-style evaluation grid, `6 models x 8 datasets x 4 horizons x 3 seeds`.
@@ -62,11 +101,21 @@ explicit ablations through environment variables. They are not the default.
   `Spectral-master/checkpoints/seed<seed>/<model>/<dataset>_<pred_len>/checkpoint_best.pth`.
 - Default ablations: `core`, `no_out_proj`, `no_global_gate`.
   `core` is residual-only and writes the variant `adapter_residual_only`.
-  Optional diagnostics: `prediction_only`, `two_path`, `force_global_gate_open`.
+  Optional diagnostics: `prediction_only`, `two_path`, `force_global_gate_open`,
+  `complex_modulation`, `complex_modulation_force_open`,
+  `complex_mod_desat_gate`, `complex_mod_high_gate_lr`,
+  `complex_mod_constant_gate`.
   `force_global_gate_open` keeps the residual-only path but initializes the
   sample-level global gate open and writes
   `adapter_residual_force_global_gate_open`, so it cannot contaminate the main
   `adapter_residual_only` Excel rows.
+  `complex_modulation` is the mechanism-B probe: it generates a complex,
+  residual-conditioned multiplier `M(Fr)` and applies
+  `irFFT(M(Fr) * Fy)`, with zero-output initialization.
+  `complex_mod_desat_gate` keeps the gate learnable but initializes it away
+  from saturation, `complex_mod_high_gate_lr` additionally gives global-gate
+  parameters a higher LR multiplier, and `complex_mod_constant_gate` fixes the
+  global gate at a moderate constant for diagnosis.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
   broader runtime knobs aligned with the 5.26 baseline protocol so the measured
   change isolates the Scheme 6 adapter behavior. In particular it explicitly
@@ -85,7 +134,7 @@ DRY_RUN=True MODELS="DLinear" DATASETS="ETTh1" PRED_LENS="96" SEEDS="0 1 2" \
   ABLATIONS="core" bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
-Gate the active residual-only method before launching the full grid:
+Gate the historical residual-only method before launching any residual-only full grid:
 
 ```bash
 bash script/05.29_residual_spectral_gating/smoke_scheme6_vs_baseline.sh
@@ -112,6 +161,20 @@ ABLATIONS="force_global_gate_open" \
   bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
+Run the complex-modulation mechanism probe:
+
+```bash
+ABLATIONS="complex_modulation complex_modulation_force_open" \
+  bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+```
+
+Run the complex-modulation gate diagnostics:
+
+```bash
+ABLATIONS="complex_mod_desat_gate complex_mod_high_gate_lr complex_mod_constant_gate" \
+  bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+```
+
 Resume the full default grid without recomputing existing logs:
 
 ```bash
@@ -119,10 +182,10 @@ SKIP_EXISTING=True ABLATIONS="core" \
   bash script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
 ```
 
-## 2026-05-29 Conservative Formula Checklist
+## 2026-05-29 Historical Residual-Only Formula Checklist
 
-This is the minimal conservative Scheme 6 path currently implemented in
-`Spectral-master/tta/cosa_scheme6.py`. The key change is replacing the old
+This is the deprecated minimal conservative Scheme 6 path still implemented in
+`Spectral-master/tta/cosa_scheme6.py` for provenance. The key change was replacing the old
 time-domain correction generator `H_t` with a guarded frequency-domain
 correction `DeltaY_t`, while keeping the base model, checkpoints, dataloader,
 normalization, and main TTA flow unchanged.
