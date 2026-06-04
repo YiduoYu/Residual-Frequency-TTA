@@ -2,11 +2,43 @@
 
 - Created: `2026-05-29`.
 - Previous version: legacy flat `script/` files from `3-versions-final-next-all-in-spectral`.
-- Status: `active`.
+- Status: `deprecated / halted after 2026-06-04 smoke gate`.
+
+## 2026-06-04 Shutdown Decision
+
+This branch is no longer the active Scheme 6 direction. Do not launch the full
+`6 models x 8 datasets x 4 horizons x 3 seeds` grid from this version, and do
+not use its partial `adapter_residual_only` outputs to fill the paper Excel.
+
+Remote run state and result hygiene:
+
+- No `tmux`, `main.py`, or Scheme 6 runner process was left running when the
+  branch was halted.
+- The earlier wrong-split `adapter_residual_only` outputs were isolated under
+  `/home/normal/3830_FinalProject_COSA-to-Spectral_0604/Spectral-master/results_quarantine/wrong_split_adapter_residual_only_20260604_162541`
+  so they should not enter Excel collection.
+- The fixed runner protocol was verified against the 5.26 reference on
+  `DLinear/ETTh2/pred96/seed0`: no-TTA produced `test_mse=0.1792` and
+  `test_mae=0.2846`, matching the 5.26 reference CSV.
+
+Smoke results after the split/protocol fix:
+
+| Variant | Smoke Scope | Baseline Wins | Avg MSE Improvement vs 5.26 no-TTA | Decision |
+|---|---:|---:|---:|---|
+| `adapter_residual_only` | 4 DLinear `pred96` points | 1 / 4 | `-0.006%` | Failed gate |
+| `adapter_residual_force_global_gate_open` | 4 DLinear `pred96` points | 1 / 4 | `-0.194%` | Worse than core |
+
+The forced-open diagnostic confirms that the poor result is not merely caused by
+an over-conservative global gate. The core run had `global_gate_mean` around
+`0.003-0.011`; the forced-open run reached `0.96-0.99`, and
+`direct_delta_norm` increased by roughly two orders of magnitude, but MSE became
+worse. This indicates the current residual spectral correction direction is
+harmful or at best too unstable, so the branch is abandoned in favor of a new
+scheme.
 
 ## Change Overview
 
-This version deploys Scheme 6 as the conservative residual spectral gating path.
+This version attempted Scheme 6 as the conservative residual spectral gating path.
 It is wired through the main-compatible `COSA_SCHEME6` adapter path instead of
 the older `cosa_select.py` path, so future merges into `main` do not depend on a
 file that `main` has already replaced.
@@ -21,6 +53,8 @@ explicit ablations through environment variables. They are not the default.
 ## Runner
 
 - Entrypoint: `run_residual_spectral_gating.sh`
+- Status: kept for provenance and reproduction only; do not use for full-grid
+  production results.
 - Result family: `COSA_SCHEME6`
 - Adapter: `Spectral-master/tta/cosa_scheme6.py`
 - Default scope: the 5.26-style evaluation grid, `6 models x 8 datasets x 4 horizons x 3 seeds`.
