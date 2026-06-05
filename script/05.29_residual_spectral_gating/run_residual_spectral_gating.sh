@@ -169,6 +169,48 @@ configure_ablation() {
       RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
       VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr"
       ;;
+    context_plus_complex_modulation_high_gate_lr_lowpass_005|context_plus_complex_mod_high_gate_lr_lowpass_005)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO=0.05
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr_lowpass_005"
+      ;;
+    context_plus_complex_modulation_high_gate_lr_lowpass_010|context_plus_complex_mod_high_gate_lr_lowpass_010)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO=0.10
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr_lowpass_010"
+      ;;
+    context_plus_complex_modulation_high_gate_lr_lowpass_020|context_plus_complex_mod_high_gate_lr_lowpass_020)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO=0.20
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr_lowpass_020"
+      ;;
+    context_plus_complex_modulation_constant_gate_005|context_plus_complex_mod_const_gate_005)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE=0.05
+      VARIANT_TAG="adapter_context_plus_complex_modulation_constant_gate_005"
+      ;;
+    context_plus_complex_modulation_constant_gate_010|context_plus_complex_mod_const_gate_010)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE=0.10
+      VARIANT_TAG="adapter_context_plus_complex_modulation_constant_gate_010"
+      ;;
+    context_plus_complex_modulation_constant_gate_020|context_plus_complex_mod_const_gate_020)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_CONSTANT_GLOBAL_GATE=0.20
+      VARIANT_TAG="adapter_context_plus_complex_modulation_constant_gate_020"
+      ;;
     complex_modulation|complex_mod)
       CORRECTION_SOURCE=complex_modulation
       VARIANT_TAG="adapter_complex_modulation"

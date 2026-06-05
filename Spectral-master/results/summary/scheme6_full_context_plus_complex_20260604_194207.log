@@ -1,0 +1,168 @@
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTh1/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTh1/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTh2/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTh2/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTm1/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTm1/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTm2/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/ETTm2/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/exchange_rate/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/exchange_rate/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/weather/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/weather/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/electricity/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/electricity/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/traffic/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/DLinear/traffic/pred720/seed0
+Missing checkpoint: ./checkpoints/seed0/FreTS/traffic_96//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=96 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/FreTS/traffic_96//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=96 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/FreTS/traffic_96//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=96 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/FreTS/traffic_192//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=192 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/FreTS/traffic_192//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=192 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/FreTS/traffic_192//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=192 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/FreTS/traffic_336//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=336 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/FreTS/traffic_336//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=336 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/FreTS/traffic_336//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=336 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/FreTS/traffic_720//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=720 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/FreTS/traffic_720//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=720 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/FreTS/traffic_720//checkpoint_best.pth
+failed scheme6: model=FreTS dataset=traffic pred_len=720 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTh1/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTh1/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTh2/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTh2/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTm1/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTm1/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTm2/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/ETTm2/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/exchange_rate/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/exchange_rate/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/weather/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/weather/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/electricity/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/iTransformer/electricity/pred720/seed0
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_96//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=96 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/iTransformer/traffic_96//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=96 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/iTransformer/traffic_96//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=96 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_192//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=192 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/iTransformer/traffic_192//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=192 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/iTransformer/traffic_192//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=192 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_336//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=336 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/iTransformer/traffic_336//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=336 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/iTransformer/traffic_336//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=336 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_720//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=720 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/iTransformer/traffic_720//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=720 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/iTransformer/traffic_720//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=720 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/OLS/electricity_720//checkpoint_best.pth
+failed scheme6: model=OLS dataset=electricity pred_len=720 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/OLS/electricity_720//checkpoint_best.pth
+failed scheme6: model=OLS dataset=electricity pred_len=720 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/OLS/electricity_720//checkpoint_best.pth
+failed scheme6: model=OLS dataset=electricity pred_len=720 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/OLS/traffic_96//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=96 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/OLS/traffic_96//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=96 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/OLS/traffic_96//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=96 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/OLS/traffic_192//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=192 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/OLS/traffic_192//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=192 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/OLS/traffic_192//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=192 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/OLS/traffic_336//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=336 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/OLS/traffic_336//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=336 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/OLS/traffic_336//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=336 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/OLS/traffic_720//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=720 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/OLS/traffic_720//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=720 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/OLS/traffic_720//checkpoint_best.pth
+failed scheme6: model=OLS dataset=traffic pred_len=720 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTh1/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTh1/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTh2/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTh2/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTm1/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTm1/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTm2/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/ETTm2/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/exchange_rate/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/exchange_rate/pred720/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/weather/pred336/seed0
+skip scheme6: adapter_context_plus_complex_modulation_high_gate_lr/PatchTST/weather/pred720/seed0
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_96//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=96 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/electricity_96//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=96 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/electricity_96//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=96 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_192//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=192 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/electricity_192//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=192 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/electricity_192//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=192 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=336 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/electricity_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=336 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/electricity_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=336 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=720 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/electricity_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=720 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/electricity_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=720 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_96//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=96 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/traffic_96//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=96 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/traffic_96//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=96 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_192//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=192 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/traffic_192//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=192 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/traffic_192//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=192 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=336 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/traffic_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=336 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/traffic_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=336 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=720 seed=0 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed1/PatchTST/traffic_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=720 seed=1 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1
+Missing checkpoint: ./checkpoints/seed2/PatchTST/traffic_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=720 seed=2 variant=adapter_context_plus_complex_modulation_high_gate_lr exit_code=1

@@ -1,0 +1,46 @@
+Traceback (most recent call last):
+  File "/home/normal/3830_FinalProject_COSA-to-Spectral_0604/Spectral-master/main.py", line 20, in <module>
+    from models.build import build_model, load_best_model, build_norm_module
+  File "/home/normal/3830_FinalProject_COSA-to-Spectral_0604/Spectral-master/models/build.py", line 14, in <module>
+    import torch
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/__init__.py", line 2804, in <module>
+    from torch import _meta_registrations
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_meta_registrations.py", line 12, in <module>
+    from torch._decomp import (
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_decomp/__init__.py", line 287, in <module>
+    import torch._decomp.decompositions
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_decomp/decompositions.py", line 17, in <module>
+    import torch._prims as prims
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_prims/__init__.py", line 825, in <module>
+    isfinite = _make_elementwise_unary_prim(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_prims/__init__.py", line 511, in _make_elementwise_unary_prim
+    return _make_prim(
+           ^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_prims/__init__.py", line 334, in _make_prim
+    prim_def = torch.library.custom_op(
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_library/custom_ops.py", line 176, in custom_op
+    return inner(fn)
+           ^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_library/custom_ops.py", line 157, in inner
+    result = CustomOpDef(namespace, opname, schema_str, fn, tags)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_library/custom_ops.py", line 215, in __init__
+    self._register_to_dispatcher(self._tags)
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/_library/custom_ops.py", line 638, in _register_to_dispatcher
+    lib._register_fake(self._name, fake_impl, _stacklevel=4)
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/torch/library.py", line 185, in _register_fake
+    caller_module = inspect.getmodule(frame)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/inspect.py", line 980, in getmodule
+    file = getabsfile(object, _filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/inspect.py", line 963, in getabsfile
+    _filename = getsourcefile(object) or getfile(object)
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/normal/miniconda3/envs/cosa/lib/python3.11/inspect.py", line 945, in getsourcefile
+    if os.path.exists(filename):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen genericpath>", line 19, in exists
+KeyboardInterrupt

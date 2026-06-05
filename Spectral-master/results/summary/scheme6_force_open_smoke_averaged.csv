@@ -1,0 +1,5 @@
+family,variant,model,dataset,horizon,seed_count,seeds,missing_seeds,test_mse_mean,test_mse_std,test_mae_mean,test_mae_std,adaptation_count_mean,total_time_seconds_mean,throughput_samples_per_sec_mean
+COSA_SCHEME6,adapter_residual_force_global_gate_open,DLinear,ETTh2,96,3,0 1 2,,0.17992554605007172,1.3494537978652767e-05,0.2851117451985677,1.0553613507623283e-05,210.0,0.86,3942.6
+COSA_SCHEME6,adapter_residual_force_global_gate_open,DLinear,ETTm2,96,3,0 1 2,,0.1213667963941892,6.047784295112598e-05,0.23429813981056213,5.96167004582456e-05,864.0,2.7033333333333336,5119.666666666667
+COSA_SCHEME6,adapter_residual_force_global_gate_open,DLinear,electricity,96,3,0 1 2,,0.20833987494309744,9.311644101943203e-06,0.2915959060192108,1.1102595117130107e-05,321.0,4.506666666666667,1146.1666666666667
+COSA_SCHEME6,adapter_residual_force_global_gate_open,DLinear,exchange_rate,96,3,0 1 2,,0.08610733846823375,0.00012414685527536838,0.20635007321834564,9.33923106575896e-05,87.0,0.56,2551.8333333333335

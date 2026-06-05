@@ -1,0 +1,58 @@
+/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/local_attention/rotary.py:33: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @autocast(enabled = False)
+/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/local_attention/rotary.py:55: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @autocast(enabled = False)
+{
+  "model": "Scheme6ResidualSpectralAdapter",
+  "scheme6_statistics": {
+    "spectral_usage": "direct",
+    "spectral_mode": "",
+    "spectral_repr": "real_imag",
+    "spectral_k": 8,
+    "context_dim": 0,
+    "context_projection_params": 0,
+    "direct_spectral_enabled": true,
+    "correction_source": "residual",
+    "spectral_gate_mode": "unidirectional",
+    "window_type": "hann",
+    "spectral_out_proj": "diagonal",
+    "fft_precision": "fp32",
+    "fft_length_mode": "exact",
+    "use_global_gate": true,
+    "reference_content_injection": false,
+    "global_gate_mean": 0.004150932817493827,
+    "local_gate_mean": 0.49514563106796117,
+    "low_freq_ratio_mean": 0.9263630509376526,
+    "spectral_l2_mean": 0.4350441517760453,
+    "direct_delta_norm_mean": 2.7528545070240795e-08,
+    "reference_content_active_ratio": 0.9902912621359223
+  },
+  "time_statistics": {
+    "adapter_operations": {
+      "context_generation_ms": 0,
+      "adapter_forward_pass_ms": 1.569,
+      "final_prediction_ms": 26.01
+    },
+    "adaptation_training": {
+      "loss_computation_ms": 0.158,
+      "backward_update_ms": 1.541,
+      "per_adaptation_step_ms": 4.043,
+      "total_per_batch_ms": 12.13,
+      "adaptation_steps": 3
+    },
+    "overall_stats": {
+      "total_time_seconds": 10.55,
+      "total_adaptations": 306,
+      "avg_time_per_adaptation_ms": 12.13,
+      "throughput_samples_per_sec": 466.8
+    }
+  },
+  "final_results": {
+    "adaptation_count": 306,
+    "test_mse": 0.20887444913387299,
+    "test_mae": 0.29069772362709045
+  },
+  "parameters": {
+    "total_params": 271306
+  }
+}

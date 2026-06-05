@@ -1,0 +1,37 @@
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_336//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_005 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_720//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_005 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_005 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_005 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_005 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_005 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_336//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_010 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_720//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_010 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_010 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_010 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_010 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_010 exit_code=1
+skip scheme6: adapter_complex_modulation_high_gate_lr_lowpass_020/DLinear/ETTh1/pred720/seed0
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_336//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_020 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/iTransformer/traffic_720//checkpoint_best.pth
+failed scheme6: model=iTransformer dataset=traffic pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_020 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_020 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/electricity_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=electricity pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_020 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_336//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=336 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_020 exit_code=1
+Missing checkpoint: ./checkpoints/seed0/PatchTST/traffic_720//checkpoint_best.pth
+failed scheme6: model=PatchTST dataset=traffic pred_len=720 seed=0 variant=adapter_complex_modulation_high_gate_lr_lowpass_020 exit_code=1

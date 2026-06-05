@@ -1,0 +1,64 @@
+/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/local_attention/rotary.py:33: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @autocast(enabled = False)
+/home/normal/miniconda3/envs/cosa/lib/python3.11/site-packages/local_attention/rotary.py:55: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @autocast(enabled = False)
+{
+  "model": "Scheme6ResidualSpectralAdapter",
+  "scheme6_statistics": {
+    "spectral_usage": "context_plus_direct",
+    "spectral_mode": "concat",
+    "spectral_repr": "real_imag",
+    "spectral_k": 8,
+    "context_dim": 8,
+    "context_projection_params": 240,
+    "direct_spectral_enabled": true,
+    "correction_source": "complex_modulation",
+    "spectral_gate_mode": "unidirectional",
+    "window_type": "hann",
+    "spectral_out_proj": "diagonal",
+    "fft_precision": "fp32",
+    "fft_length_mode": "exact",
+    "use_global_gate": true,
+    "constant_global_gate": "",
+    "complex_mod_freq_cutoff_ratio": 1.0,
+    "complex_mod_freq_mask_mean": 1.0,
+    "global_gate_lr_multiplier": 10.0,
+    "reference_content_injection": false,
+    "global_gate_mean": 0.31584344694920635,
+    "local_gate_mean": 0.49770642201834864,
+    "low_freq_ratio_mean": 0.9105239704661413,
+    "spectral_l2_mean": 0.143294669619394,
+    "direct_delta_norm_mean": 0.00041833843894283085,
+    "reference_content_active_ratio": 0.9954128440366973,
+    "complex_mod_magnitude_mean": 0.03547820815850699,
+    "complex_mod_phase_abs_mean": 1.9990011059909785
+  },
+  "time_statistics": {
+    "adapter_operations": {
+      "context_generation_ms": 1.349,
+      "adapter_forward_pass_ms": 1.347,
+      "final_prediction_ms": 1.42
+    },
+    "adaptation_training": {
+      "loss_computation_ms": 0.641,
+      "backward_update_ms": 4.357,
+      "per_adaptation_step_ms": 6.506,
+      "total_per_batch_ms": 19.521,
+      "adaptation_steps": 3
+    },
+    "overall_stats": {
+      "total_time_seconds": 5.71,
+      "total_adaptations": 651,
+      "avg_time_per_adaptation_ms": 19.521,
+      "throughput_samples_per_sec": 1827.9
+    }
+  },
+  "final_results": {
+    "adaptation_count": 651,
+    "test_mse": 0.16726557910442352,
+    "test_mae": 0.22806930541992188
+  },
+  "parameters": {
+    "total_params": 225379
+  }
+}
