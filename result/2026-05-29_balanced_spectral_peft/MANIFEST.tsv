@@ -1,0 +1,6 @@
+kind	file	source	note
+final_table	final_tables/balanced_3models_4datasets_seed012_electricity_balanced_summary.csv	remote:Spectral-master/results/summary/balanced_3models_4datasets_seed012_electricity_balanced_summary.csv	raw balanced summary from the latest balanced-only GPU run
+comparison_table	final_tables/balanced_spectral_comparison_vs_5_26.csv	local join with result/5.26_paper8_experiment/final_tables/paper8_full_comparison_averaged.csv	Balanced results compared with baseline, simple COSA, and old Spectral
+failure_log	failure_logs/balanced_3models_4datasets_seed012_electricity_failures.tsv	remote:Spectral-master/results/summary/balanced_3models_4datasets_seed012_electricity_failures.tsv	header only; no recorded failures
+run_log	run_logs/balanced_3models_4datasets_seed012_electricity.driver.log	remote:Spectral-master/results/summary/balanced_3models_4datasets_seed012_electricity.driver.log	driver log for provenance
+
