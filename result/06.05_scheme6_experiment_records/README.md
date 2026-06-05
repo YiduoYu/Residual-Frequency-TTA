@@ -23,6 +23,20 @@ for the `2026-05-29-residual-spectral-gating` branch.
 - `spectral_master_results/summary/scheme6_context_plus_targeted_seed0_results.csv`
 - `spectral_master_results/summary/scheme6_context_plus_constant010_targeted_averaged.csv`
 - `spectral_master_results/summary/scheme6_context_plus_constant010_targeted_improvement.csv`
+- `spectral_master_results/summary/scheme6_context_plus_constant010_pred720_results.csv`
+- `spectral_master_results/summary/scheme6_context_plus_constant010_pred720_averaged.csv`
+- `spectral_master_results/summary/scheme6_context_plus_constant010_pred720_improvement.csv`
+- `spectral_master_results/summary/scheme6_context_plus_constant020_micn_pred720_results.csv`
+- `spectral_master_results/summary/scheme6_context_plus_constant020_micn_pred720_averaged.csv`
+- `spectral_master_results/summary/scheme6_context_plus_constant020_micn_pred720_comparison.csv`
+
+## Follow-up Diagnostics
+
+- `constant_gate_010` fixes the global residual correction strength at `0.10`
+  while keeping the context adapter and complex modulation trainable. It was
+  used as a conservative pred720 diagnostic after the learned-gate full run.
+- `constant_gate_020` was run only on `MICN` pred720 to test whether MICN's
+  learned-gate advantage was mainly caused by needing a larger fixed gate.
 
 ## Notes
 
