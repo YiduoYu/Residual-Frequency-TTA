@@ -34,6 +34,7 @@ GLOBAL_GATE_INIT_BIAS=${GLOBAL_GATE_INIT_BIAS:--6.0}
 FORCE_OPEN_GLOBAL_GATE_INIT_BIAS=${FORCE_OPEN_GLOBAL_GATE_INIT_BIAS:-6.0}
 DESAT_GLOBAL_GATE_INIT_BIAS=${DESAT_GLOBAL_GATE_INIT_BIAS:--2.0}
 HIGH_GATE_LR_MULTIPLIER=${HIGH_GATE_LR_MULTIPLIER:-10.0}
+GLOBAL_GATE_FLOOR=${GLOBAL_GATE_FLOOR:-0.0}
 CONSTANT_GLOBAL_GATE=${CONSTANT_GLOBAL_GATE:-0.5}
 COMPLEX_MOD_FREQ_CUTOFF_RATIO=${COMPLEX_MOD_FREQ_CUTOFF_RATIO:-1.0}
 FFT_PRECISION=${FFT_PRECISION:-fp32}
@@ -135,6 +136,7 @@ configure_ablation() {
   ENABLE_REFERENCE_CONTENT_INJECTION=False
   RUN_GLOBAL_GATE_INIT_BIAS="${GLOBAL_GATE_INIT_BIAS}"
   RUN_GLOBAL_GATE_LR_MULTIPLIER=1.0
+  RUN_GLOBAL_GATE_FLOOR="${GLOBAL_GATE_FLOOR}"
   RUN_CONSTANT_GLOBAL_GATE=-1.0
   RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO="${COMPLEX_MOD_FREQ_CUTOFF_RATIO}"
 
@@ -168,6 +170,30 @@ configure_ablation() {
       RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
       RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
       VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr"
+      ;;
+    context_plus_complex_modulation_high_gate_lr_floor_005|context_plus_complex_mod_high_gate_lr_floor_005)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_GLOBAL_GATE_FLOOR=0.05
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr_floor_005"
+      ;;
+    context_plus_complex_modulation_high_gate_lr_floor_010|context_plus_complex_mod_high_gate_lr_floor_010)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_GLOBAL_GATE_FLOOR=0.10
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr_floor_010"
+      ;;
+    context_plus_complex_modulation_high_gate_lr_floor_020|context_plus_complex_mod_high_gate_lr_floor_020)
+      SPECTRAL_USAGE=context_plus_direct
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_GLOBAL_GATE_FLOOR=0.20
+      VARIANT_TAG="adapter_context_plus_complex_modulation_high_gate_lr_floor_020"
       ;;
     context_plus_complex_modulation_high_gate_lr_lowpass_005|context_plus_complex_mod_high_gate_lr_lowpass_005)
       SPECTRAL_USAGE=context_plus_direct
@@ -230,6 +256,27 @@ configure_ablation() {
       RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
       RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
       VARIANT_TAG="adapter_complex_modulation_high_gate_lr"
+      ;;
+    complex_modulation_high_gate_lr_floor_005|complex_mod_high_gate_lr_floor_005)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_GLOBAL_GATE_FLOOR=0.05
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr_floor_005"
+      ;;
+    complex_modulation_high_gate_lr_floor_010|complex_mod_high_gate_lr_floor_010)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_GLOBAL_GATE_FLOOR=0.10
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr_floor_010"
+      ;;
+    complex_modulation_high_gate_lr_floor_020|complex_mod_high_gate_lr_floor_020)
+      CORRECTION_SOURCE=complex_modulation
+      RUN_GLOBAL_GATE_INIT_BIAS="${DESAT_GLOBAL_GATE_INIT_BIAS}"
+      RUN_GLOBAL_GATE_LR_MULTIPLIER="${HIGH_GATE_LR_MULTIPLIER}"
+      RUN_GLOBAL_GATE_FLOOR=0.20
+      VARIANT_TAG="adapter_complex_modulation_high_gate_lr_floor_020"
       ;;
     complex_modulation_high_gate_lr_lowpass_005|complex_mod_high_gate_lr_lowpass_005)
       CORRECTION_SOURCE=complex_modulation
@@ -338,6 +385,7 @@ run_scheme6_one() {
     TTA.COSA.SPECTRAL.USE_GLOBAL_GATE "${USE_GLOBAL_GATE}" \
     TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS "${RUN_GLOBAL_GATE_INIT_BIAS}" \
     TTA.COSA.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER "${RUN_GLOBAL_GATE_LR_MULTIPLIER}" \
+    TTA.COSA.SPECTRAL.GLOBAL_GATE_FLOOR "${RUN_GLOBAL_GATE_FLOOR}" \
     TTA.COSA.SPECTRAL.CONSTANT_GLOBAL_GATE "${RUN_CONSTANT_GLOBAL_GATE}" \
     TTA.COSA.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO "${RUN_COMPLEX_MOD_FREQ_CUTOFF_RATIO}" \
     TTA.COSA.SPECTRAL.WINDOW_TYPE "${WINDOW_TYPE}" \

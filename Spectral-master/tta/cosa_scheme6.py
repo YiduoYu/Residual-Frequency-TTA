@@ -60,6 +60,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         use_global_gate=True,
         global_gate_features="hs,l2,low_freq_ratio",
         global_gate_init_bias=-6.0,
+        global_gate_floor=0.0,
         constant_global_gate=-1.0,
         complex_mod_freq_cutoff_ratio=1.0,
         window_type="hann",
@@ -82,6 +83,7 @@ class Scheme6DirectSpectralCorrector(nn.Module):
         self.use_global_gate = bool(use_global_gate)
         self.global_gate_features = _as_list(global_gate_features) or ["hs", "l2", "low_freq_ratio"]
         self.global_gate_init_bias = float(global_gate_init_bias)
+        self.global_gate_floor = float(global_gate_floor)
         constant_global_gate = float(constant_global_gate)
         self.constant_global_gate = constant_global_gate if 0.0 <= constant_global_gate <= 1.0 else None
         self.complex_mod_freq_cutoff_ratio = float(complex_mod_freq_cutoff_ratio)
@@ -106,6 +108,8 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             raise ValueError("FFT_LENGTH_MODE='exact' is the supported Scheme 6 path.")
         if self.complex_mod_freq_cutoff_ratio <= 0.0:
             raise ValueError("COMPLEX_MOD_FREQ_CUTOFF_RATIO must be positive.")
+        if not 0.0 <= self.global_gate_floor < 1.0:
+            raise ValueError("GLOBAL_GATE_FLOOR must be in [0, 1).")
 
         self.gy_gain = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
         self.gy_bias = nn.Parameter(torch.zeros(self.n_freq, self.n_vars))
@@ -158,11 +162,13 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             "fft_precision": self.fft_precision,
             "fft_length_mode": self.fft_length_mode,
             "use_global_gate": int(self.use_global_gate),
+            "global_gate_floor": self.global_gate_floor,
             "constant_global_gate": "" if self.constant_global_gate is None else self.constant_global_gate,
             "complex_mod_freq_cutoff_ratio": self.complex_mod_freq_cutoff_ratio,
             "complex_mod_freq_mask_mean": float(self.complex_mod_freq_mask.mean().cpu()),
             "enable_reference_content_injection": int(self.enable_reference_content_injection),
             "global_gate_mean": 0.0,
+            "raw_global_gate_mean": 0.0,
             "local_gate_mean": 0.0,
             "reference_gate_mean": 0.0,
             "low_freq_ratio_mean": 0.0,
@@ -326,11 +332,17 @@ class Scheme6DirectSpectralCorrector(nn.Module):
                 dtype=delta.dtype,
                 device=delta.device,
             )
+            raw_global_gate = global_gate
         elif self.global_gate is None:
             global_gate = torch.ones(batch_size, self.n_vars, dtype=delta.dtype, device=delta.device)
+            raw_global_gate = global_gate
         else:
             gate_features = self._global_gate_features(y, low_freq_ratio, spectral_l2)
-            global_gate = torch.sigmoid(self.global_gate(gate_features).squeeze(-1))
+            raw_global_gate = torch.sigmoid(self.global_gate(gate_features).squeeze(-1))
+            if self.global_gate_floor > 0.0:
+                global_gate = self.global_gate_floor + (1.0 - self.global_gate_floor) * raw_global_gate
+            else:
+                global_gate = raw_global_gate
 
         y_hat = y + global_gate.unsqueeze(1) * delta
         if self.enable_revin_on_spectral_path:
@@ -346,11 +358,13 @@ class Scheme6DirectSpectralCorrector(nn.Module):
             "fft_precision": self.fft_precision,
             "fft_length_mode": self.fft_length_mode,
             "use_global_gate": int(self.use_global_gate),
+            "global_gate_floor": self.global_gate_floor,
             "constant_global_gate": "" if self.constant_global_gate is None else self.constant_global_gate,
             "complex_mod_freq_cutoff_ratio": self.complex_mod_freq_cutoff_ratio,
             "complex_mod_freq_mask_mean": float(self.complex_mod_freq_mask.detach().mean().cpu()),
             "enable_reference_content_injection": int(self.enable_reference_content_injection),
             "global_gate_mean": float(global_gate.detach().mean().cpu()),
+            "raw_global_gate_mean": float(raw_global_gate.detach().mean().cpu()),
             "local_gate_mean": float(gy.detach().mean().cpu()),
             "reference_gate_mean": float(gr_mean),
             "low_freq_ratio_mean": float(low_freq_ratio.detach().mean().cpu()),
@@ -413,6 +427,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
             use_global_gate=_as_bool(getattr(spectral_cfg, "USE_GLOBAL_GATE", True)),
             global_gate_features=getattr(spectral_cfg, "GLOBAL_GATE_FEATURES", "hs,l2,low_freq_ratio"),
             global_gate_init_bias=getattr(spectral_cfg, "GLOBAL_GATE_INIT_BIAS", -6.0),
+            global_gate_floor=getattr(spectral_cfg, "GLOBAL_GATE_FLOOR", 0.0),
             constant_global_gate=getattr(spectral_cfg, "CONSTANT_GLOBAL_GATE", -1.0),
             complex_mod_freq_cutoff_ratio=getattr(spectral_cfg, "COMPLEX_MOD_FREQ_CUTOFF_RATIO", 1.0),
             window_type=getattr(spectral_cfg, "WINDOW_TYPE", "hann"),
@@ -731,6 +746,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                     "direct_fft_precision": direct_stats["fft_precision"],
                     "direct_fft_length_mode": direct_stats["fft_length_mode"],
                     "direct_use_global_gate": int(direct_stats["use_global_gate"]),
+                    "direct_global_gate_floor": float(direct_stats.get("global_gate_floor", 0.0)),
                     "direct_constant_global_gate": direct_stats.get("constant_global_gate", ""),
                     "direct_complex_mod_freq_cutoff_ratio": float(
                         direct_stats.get("complex_mod_freq_cutoff_ratio", 1.0)
@@ -740,6 +756,7 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                     ),
                     "direct_reference_content_injection": int(direct_stats["enable_reference_content_injection"]),
                     "direct_global_gate_mean": float(direct_stats["global_gate_mean"]),
+                    "direct_raw_global_gate_mean": float(direct_stats.get("raw_global_gate_mean", 0.0)),
                     "direct_local_gate_mean": float(direct_stats["local_gate_mean"]),
                     "direct_reference_gate_mean": float(direct_stats["reference_gate_mean"]),
                     "direct_low_freq_ratio_mean": float(direct_stats["low_freq_ratio_mean"]),
@@ -828,12 +845,14 @@ class Scheme6ResidualSpectralAdapter(SimpleAdapter):
                 "fft_precision": self._direct_stats()["fft_precision"],
                 "fft_length_mode": self._direct_stats()["fft_length_mode"],
                 "use_global_gate": bool(self._direct_stats()["use_global_gate"]),
+                "global_gate_floor": float(self._direct_stats().get("global_gate_floor", 0.0)),
                 "constant_global_gate": self._direct_stats().get("constant_global_gate", ""),
                 "complex_mod_freq_cutoff_ratio": self._direct_stats().get("complex_mod_freq_cutoff_ratio", 1.0),
                 "complex_mod_freq_mask_mean": mean_direct("direct_complex_mod_freq_mask_mean"),
                 "global_gate_lr_multiplier": self.global_gate_lr_multiplier,
                 "reference_content_injection": bool(self._direct_stats()["enable_reference_content_injection"]),
                 "global_gate_mean": mean_direct("direct_global_gate_mean"),
+                "raw_global_gate_mean": mean_direct("direct_raw_global_gate_mean"),
                 "local_gate_mean": mean_direct("direct_local_gate_mean"),
                 "low_freq_ratio_mean": mean_direct("direct_low_freq_ratio_mean"),
                 "spectral_l2_mean": mean_direct("direct_spectral_l2_mean"),

@@ -29,6 +29,12 @@ for the `2026-05-29-residual-spectral-gating` branch.
 - `spectral_master_results/summary/scheme6_context_plus_constant020_micn_pred720_results.csv`
 - `spectral_master_results/summary/scheme6_context_plus_constant020_micn_pred720_averaged.csv`
 - `spectral_master_results/summary/scheme6_context_plus_constant020_micn_pred720_comparison.csv`
+- `spectral_master_results/summary/scheme6_gate_floor005_pred720_results.csv`
+- `spectral_master_results/summary/scheme6_gate_floor005_pred720_averaged.csv`
+- `spectral_master_results/summary/scheme6_gate_floor005_pred720_comparison.csv`
+- `spectral_master_results/summary/scheme6_gate_floor010_micn_pred720_results.csv`
+- `spectral_master_results/summary/scheme6_gate_floor010_micn_pred720_averaged.csv`
+- `spectral_master_results/summary/scheme6_gate_floor010_micn_pred720_comparison.csv`
 
 ## Follow-up Diagnostics
 
@@ -37,6 +43,12 @@ for the `2026-05-29-residual-spectral-gating` branch.
   used as a conservative pred720 diagnostic after the learned-gate full run.
 - `constant_gate_020` was run only on `MICN` pred720 to test whether MICN's
   learned-gate advantage was mainly caused by needing a larger fixed gate.
+- `high_gate_lr_floor_005/010` keep the global gate learnable but enforce a
+  minimum gate value. This tests whether a weak learned-gate floor can inherit
+  the stability of constant gates without giving up per-batch/per-variable
+  adaptivity. In the pred720 diagnostic, `floor_005` was only a marginal change
+  versus the learned high-gate baseline, so it is archived as a diagnostic
+  rather than promoted to the main Scheme6-B candidate.
 
 ## Notes
 

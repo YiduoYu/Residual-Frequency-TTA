@@ -44,6 +44,23 @@ the Scheme6-B direct complex modulation path:
 Spectral context adapter + residual-conditioned complex modulation
 ```
 
+Current gate-floor diagnostic:
+
+```text
+adapter_context_plus_complex_modulation_high_gate_lr_floor_010
+```
+
+This keeps the learned global gate but applies a lower bound:
+
+```text
+g = floor + (1 - floor) * sigmoid(g_theta(features))
+```
+
+It is different from `constant_gate_010/020`: the gate still adapts per
+batch/variable, but the direct spectral correction cannot be fully shut off.
+Use it to test whether the long-horizon stability of constant gates can be
+combined with the model-specific adaptivity of the learned gate.
+
 In the 2026-06-04 seed0 long-horizon check, this variant completed all 42
 runnable `pred336/720` points. It beat no-TTA baseline on 42/42 points with
 average MSE improvement `+21.63%`, beat COSA on 30/30 comparable points with
@@ -135,6 +152,10 @@ active Scheme6-B ablations use `CORRECTION_SOURCE=complex_modulation`.
   `context_plus_complex_modulation_high_gate_lr` keeps the Spectral-COSA
   context adapter active while adding the high-LR complex modulation direct
   correction path; this is the current main Scheme6-B candidate.
+  `context_plus_complex_modulation_high_gate_lr_floor_005`,
+  `context_plus_complex_modulation_high_gate_lr_floor_010`, and
+  `context_plus_complex_modulation_high_gate_lr_floor_020` keep the same learned
+  high-LR gate but enforce a minimum gate value for long-horizon diagnostics.
 - The runner intentionally leaves normalization, PAAS, dataloader tuning, and
   broader runtime knobs aligned with the 5.26 baseline protocol so the measured
   change isolates the Scheme 6 adapter behavior. In particular it explicitly
