@@ -10,6 +10,10 @@ cd "${SPECTRAL_ROOT}"
 PYTHON=${PYTHON:-python}
 DRY_RUN=${DRY_RUN:-True}
 STAGES=${STAGES:-direct_spectral}
+SKIP_EXISTING=${SKIP_EXISTING:-False}
+CONTINUE_ON_ERROR=${CONTINUE_ON_ERROR:-True}
+FAILURE_LOG=${FAILURE_LOG:-"./results/summary/direct_spectral_failures.tsv"}
+RUN_ID=${RUN_ID:-$(date +%Y%m%d_%H%M%S)}
 MODELS=${MODELS:-"DLinear FreTS iTransformer"}
 DATASETS=${DATASETS:-"weather ETTm1"}
 PRED_LENS=${PRED_LENS:-"336 720"}
@@ -101,6 +105,50 @@ require_checkpoint() {
   fi
 }
 
+init_failure_log() {
+  mkdir -p "$(dirname "${FAILURE_LOG}")"
+  if [ ! -f "${FAILURE_LOG}" ]; then
+    printf 'run_id\ttimestamp\tstage\tmodel\tdataset\tpred_len\tseed\tvariant\texit_code\n' > "${FAILURE_LOG}"
+  fi
+}
+
+record_failure() {
+  local stage="${1}"
+  local model="${2}"
+  local dataset="${3}"
+  local pred_len="${4}"
+  local seed="${5}"
+  local variant="${6}"
+  local exit_code="${7}"
+  init_failure_log
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${RUN_ID}" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${stage}" "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}" \
+    >> "${FAILURE_LOG}"
+  echo "failed ${stage}: model=${model} dataset=${dataset} pred_len=${pred_len} seed=${seed} variant=${variant} exit_code=${exit_code}" >&2
+}
+
+run_with_recovery() {
+  local stage="${1}"
+  local model="${2}"
+  local dataset="${3}"
+  local pred_len="${4}"
+  local seed="${5}"
+  local variant="${6}"
+  shift 6
+
+  local exit_code
+  if "$@"; then
+    return 0
+  fi
+
+  exit_code=$?
+  record_failure "${stage}" "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" "${exit_code}"
+  if is_true "${CONTINUE_ON_ERROR}"; then
+    return 0
+  fi
+  return "${exit_code}"
+}
+
 run_to_log() {
   local output="${1}"
   shift
@@ -133,6 +181,10 @@ run_direct_spectral_one() {
 
   local output="./results/summary/DIRECT_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
   local log_csv="./results/summary/DIRECT_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}_batches.csv"
+  if is_true "${SKIP_EXISTING}" && [ -f "${output}" ]; then
+    echo "skip direct_spectral: ${variant_tag}/${model}/${dataset}/${pred_len}/seed${seed}"
+    return
+  fi
 
   run_to_log "${output}" "${PYTHON_CMD[@]}" main.py \
     SEED "${seed}" \
@@ -181,12 +233,15 @@ run_direct_spectral_one() {
     RESULT_DIR "./results/DIRECT_SPECTRAL/${variant_tag}/"
 }
 
+init_failure_log
+
 if has_stage direct_spectral; then
   for seed in "${SEED_LIST[@]}"; do
     for model in "${MODEL_LIST[@]}"; do
       for dataset in "${DATASET_LIST[@]}"; do
         for pred_len in "${PRED_LEN_LIST[@]}"; do
-          run_direct_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+          run_with_recovery direct_spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "$(direct_spectral_variant)" \
+            run_direct_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
         done
       done
     done
