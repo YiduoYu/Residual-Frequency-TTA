@@ -35,6 +35,56 @@ def test_context_shape():
     assert torch.isfinite(context).all()
 
 
+def test_raw_context_dim_ablation_flags():
+    cases = [
+        (True, True, 19),
+        (False, True, 18),
+        (True, False, 17),
+        (False, False, 16),
+    ]
+
+    for use_power_ratio, use_residual_stats, expected_dim in cases:
+        builder = DirectSpectralContextBuilder(
+            pred_len=16,
+            n_vars=3,
+            spectral_k=8,
+            history_size=8,
+            use_power_ratio=use_power_ratio,
+            use_residual_stats=use_residual_stats,
+        )
+        assert builder.raw_context_dim == expected_dim
+        assert builder.spectral_context_dim == expected_dim
+
+
+def test_concat_mean_context_adds_context_dim():
+    torch.manual_seed(13)
+    pred_len, n_vars, mean_context_size = 16, 3, 5
+    builder = DirectSpectralContextBuilder(
+        pred_len=pred_len,
+        n_vars=n_vars,
+        spectral_k=8,
+        history_size=8,
+        use_power_ratio=True,
+        use_residual_stats=True,
+        include_mean_context=True,
+        mean_context_size=mean_context_size,
+    )
+    history = [
+        {
+            "residual_profile": torch.randn(pred_len, n_vars),
+            "target_mean_var": torch.randn(n_vars),
+        }
+        for _ in range(3)
+    ]
+
+    context = builder(history, batch_size=2)
+
+    assert builder.spectral_context_dim == 19
+    assert builder.raw_context_dim == 19 + mean_context_size
+    assert context.shape == (2, n_vars, 19 + mean_context_size)
+    assert torch.isfinite(context).all()
+
+
 def test_missing_history_returns_zero_context_with_shape():
     builder = DirectSpectralContextBuilder(
         pred_len=16,

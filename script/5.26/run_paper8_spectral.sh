@@ -21,7 +21,7 @@ MODELS=${MODELS:-"DLinear FreTS iTransformer MICN OLS PatchTST"}
 DATASETS=${DATASETS:-"${PAPER_DATASETS} ${EXTRA_DATASETS}"}
 PRED_LENS=${PRED_LENS:-"96 192 336 720"}
 
-STAGES=${STAGES:-"train baseline cosa collect"}
+STAGES=${STAGES:-"train baseline cosa spectral collect"}
 COSA_BATCHING=${COSA_BATCHING:-"fixed paas"}
 DRY_RUN=${DRY_RUN:-False}
 SKIP_EXISTING=${SKIP_EXISTING:-False}
@@ -46,6 +46,22 @@ MIN_LR=${MIN_LR:-0.0001}
 WEIGHT_DECAY=${WEIGHT_DECAY:-0.0001}
 CONVERGENCE_THRESHOLD=${CONVERGENCE_THRESHOLD:-1e-6}
 
+SPECTRAL_MODE=${SPECTRAL_MODE:-concat}
+SPECTRAL_PAAS=${SPECTRAL_PAAS:-False}
+SPECTRAL_USAGE=${SPECTRAL_USAGE:-context_only}
+SPECTRAL_SOURCE=${SPECTRAL_SOURCE:-residual_profile}
+SPECTRAL_REPR=${SPECTRAL_REPR:-real_imag}
+SPECTRAL_K=${SPECTRAL_K:-8}
+SPECTRAL_HISTORY_SIZE=${SPECTRAL_HISTORY_SIZE:-8}
+SPECTRAL_INCLUDE_POWER_RATIO=${SPECTRAL_INCLUDE_POWER_RATIO:-True}
+SPECTRAL_INCLUDE_RESIDUAL_STATS=${SPECTRAL_INCLUDE_RESIDUAL_STATS:-True}
+SPECTRAL_MIN_POWER_RATIO_FOR_DIRECT=${SPECTRAL_MIN_POWER_RATIO_FOR_DIRECT:-0.20}
+USE_CONTEXT_PROJECTION=${USE_CONTEXT_PROJECTION:-True}
+CONTEXT_PROJECTION_DIM=${CONTEXT_PROJECTION_DIM:-8}
+MAX_CONTEXT_DIM_FOR_FULL_ADAPTER=${MAX_CONTEXT_DIM_FOR_FULL_ADAPTER:-16}
+PARAM_BUDGET_MULTIPLIER=${PARAM_BUDGET_MULTIPLIER:-1.25}
+ENABLE_DIRECT_CORRECTION=${ENABLE_DIRECT_CORRECTION:-False}
+
 read -r -a MODEL_LIST <<< "${MODELS}"
 read -r -a DATASET_LIST <<< "${DATASETS}"
 read -r -a PRED_LEN_LIST <<< "${PRED_LENS}"
@@ -63,7 +79,7 @@ is_true() {
 has_stage() {
   local wanted="${1}"
   if [[ " ${STAGES} " == *" all "* ]]; then
-    [[ "${wanted}" == "train" || "${wanted}" == "baseline" || "${wanted}" == "cosa" || "${wanted}" == "collect" ]]
+    [[ "${wanted}" == "train" || "${wanted}" == "baseline" || "${wanted}" == "cosa" || "${wanted}" == "spectral" || "${wanted}" == "collect" ]]
     return
   fi
   [[ " ${STAGES} " == *" ${wanted} "* ]]
@@ -166,6 +182,10 @@ run_cmd() {
   else
     "$@"
   fi
+}
+
+spectral_variant() {
+  echo "spectral_paper8_${SPECTRAL_SOURCE}_${SPECTRAL_REPR}_hist${SPECTRAL_HISTORY_SIZE}_proj${USE_CONTEXT_PROJECTION}_dim${CONTEXT_PROJECTION_DIM}" | tr ' /' '__'
 }
 
 cosa_variant_for_mode() {
@@ -335,19 +355,97 @@ run_cosa_one() {
     RESULT_DIR "./results/SIMPLE/${variant_tag}/"
 }
 
+run_spectral_one() {
+  local model="${1}"
+  local dataset="${2}"
+  local pred_len="${3}"
+  local seed="${4}"
+  local checkpoint_dir
+  checkpoint_dir="$(checkpoint_dir_for "${model}" "${dataset}" "${pred_len}" "${seed}")"
+  local variant_tag
+  variant_tag="$(spectral_variant)"
+
+  require_data "${dataset}" || return
+  require_checkpoint "${checkpoint_dir}" || return
+
+  local output="./results/summary/COSA_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
+  local log_csv="./results/summary/COSA_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}_batches.csv"
+  if is_true "${SKIP_EXISTING}" && [ -f "${output}" ]; then
+    echo "skip spectral: ${variant_tag}/${model}/${dataset}/${pred_len}"
+    return
+  fi
+
+  run_to_log "${output}" "${PYTHON_CMD[@]}" main.py \
+    SEED "${seed}" \
+    VISIBLE_DEVICES "${VISIBLE_DEVICES}" \
+    DATA_LOADER.NUM_WORKERS "${NUM_WORKERS}" \
+    DATA.BASE_DIR ./data/ \
+    DATA.NAME "${dataset}" \
+    DATA.SEQ_LEN "${LOOK_BACK}" \
+    DATA.LABEL_LEN "${LABEL_LEN}" \
+    DATA.PRED_LEN "${pred_len}" \
+    DATA.TRAIN_RATIO "${TRAIN_RATIO}" \
+    DATA.TEST_RATIO "${TEST_RATIO}" \
+    DATA.SCALE standard \
+    NORMALIZE NST \
+    NORM_MODULE.ENABLE False \
+    MODEL.NAME "${model}" \
+    MODEL.seq_len "${LOOK_BACK}" \
+    MODEL.label_len "${LABEL_LEN}" \
+    MODEL.pred_len "${pred_len}" \
+    MODEL.channel_independence True \
+    TRAIN.ENABLE False \
+    TRAIN.CHECKPOINT_DIR "${checkpoint_dir}" \
+    TEST.ENABLE False \
+    TTA.ENABLE True \
+    TTA.SOLVER.BASE_LR "${BASE_LR}" \
+    TTA.SOLVER.WEIGHT_DECAY "${WEIGHT_DECAY}" \
+    TTA.COSA.BATCH_SIZE "${BATCH_SIZE}" \
+    TTA.COSA.STEPS "${STEPS}" \
+    TTA.COSA.BUFFER_CONTEXT_SIZE "${CONTEXT_K}" \
+    TTA.COSA.PAAS "${SPECTRAL_PAAS}" \
+    TTA.COSA.PERIOD_N "${PERIOD_N}" \
+    TTA.COSA.FAST_ADAPTATION True \
+    TTA.COSA.ADAPTIVE_LR True \
+    TTA.COSA.PER_BATCH_LR_RESET True \
+    TTA.COSA.MAX_LR "${MAX_LR}" \
+    TTA.COSA.MIN_LR "${MIN_LR}" \
+    TTA.COSA.CONVERGENCE_THRESHOLD "${CONVERGENCE_THRESHOLD}" \
+    TTA.COSA.ADAPTER_LAYERS 1 \
+    TTA.COSA.VAR_WISE_GATING True \
+    TTA.COSA.SPECTRAL.MODE "${SPECTRAL_MODE}" \
+    TTA.COSA.SPECTRAL.USAGE "${SPECTRAL_USAGE}" \
+    TTA.COSA.SPECTRAL.SOURCE "${SPECTRAL_SOURCE}" \
+    TTA.COSA.SPECTRAL.REPR "${SPECTRAL_REPR}" \
+    TTA.COSA.SPECTRAL.K "${SPECTRAL_K}" \
+    TTA.COSA.SPECTRAL.HISTORY_SIZE "${SPECTRAL_HISTORY_SIZE}" \
+    TTA.COSA.SPECTRAL.INCLUDE_POWER_RATIO "${SPECTRAL_INCLUDE_POWER_RATIO}" \
+    TTA.COSA.SPECTRAL.INCLUDE_RESIDUAL_STATS "${SPECTRAL_INCLUDE_RESIDUAL_STATS}" \
+    TTA.COSA.SPECTRAL.MIN_POWER_RATIO_FOR_DIRECT "${SPECTRAL_MIN_POWER_RATIO_FOR_DIRECT}" \
+    TTA.COSA.SPECTRAL.USE_CONTEXT_PROJECTION "${USE_CONTEXT_PROJECTION}" \
+    TTA.COSA.SPECTRAL.CONTEXT_PROJECTION_DIM "${CONTEXT_PROJECTION_DIM}" \
+    TTA.COSA.SPECTRAL.MAX_CONTEXT_DIM_FOR_FULL_ADAPTER "${MAX_CONTEXT_DIM_FOR_FULL_ADAPTER}" \
+    TTA.COSA.SPECTRAL.PARAM_BUDGET_MULTIPLIER "${PARAM_BUDGET_MULTIPLIER}" \
+    TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION "${ENABLE_DIRECT_CORRECTION}" \
+    TTA.COSA.SPECTRAL.LOG_CSV_PATH "${log_csv}" \
+    RESULT_DIR "./results/COSA_SPECTRAL/${variant_tag}/"
+}
+
 run_collect() {
   local variants=("baseline_no_tta")
   local cosa_batch_mode
   for cosa_batch_mode in "${COSA_BATCH_MODE_LIST[@]}"; do
     variants+=("$(cosa_variant_for_mode "${cosa_batch_mode}")")
   done
+  variants+=("$(spectral_variant)")
+
   local collect_args=(
     "${PYTHON_CMD[@]}" "${SCRIPT_DIR}/collect_results.py"
     --root results/summary \
     --baseline-root results/BASELINE \
     --output results/summary/paper8_full_comparison.csv \
     --average-output results/summary/paper8_full_comparison_averaged.csv \
-    --families BASELINE SIMPLE \
+    --families BASELINE SIMPLE COSA_SPECTRAL \
     --datasets "${DATASET_LIST[@]}" \
     --models "${MODEL_LIST[@]}" \
     --horizons "${PRED_LEN_LIST[@]}" \
@@ -400,6 +498,19 @@ if has_stage cosa; then
       done
     done
   done
+  done
+fi
+
+if has_stage spectral; then
+  for seed in "${SEED_LIST[@]}"; do
+    for model in "${MODEL_LIST[@]}"; do
+      for dataset in "${DATASET_LIST[@]}"; do
+        for pred_len in "${PRED_LEN_LIST[@]}"; do
+          run_with_recovery spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "$(spectral_variant)" \
+            run_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+        done
+      done
+    done
   done
 fi
 

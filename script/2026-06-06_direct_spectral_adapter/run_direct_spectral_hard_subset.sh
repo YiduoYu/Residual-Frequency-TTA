@@ -10,6 +10,7 @@ cd "${SPECTRAL_ROOT}"
 PYTHON=${PYTHON:-python}
 DRY_RUN=${DRY_RUN:-True}
 STAGES=${STAGES:-direct_spectral}
+VARIANTS=${VARIANTS:-${VARIANT:-dsa_proj8_default}}
 SKIP_EXISTING=${SKIP_EXISTING:-False}
 CONTINUE_ON_ERROR=${CONTINUE_ON_ERROR:-True}
 FAILURE_LOG=${FAILURE_LOG:-"./results/summary/direct_spectral_failures.tsv"}
@@ -42,7 +43,10 @@ DIRECT_SPECTRAL_HISTORY_SIZE=${DIRECT_SPECTRAL_HISTORY_SIZE:-8}
 DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM=${DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM:-8}
 DIRECT_SPECTRAL_USE_RESIDUAL_STATS=${DIRECT_SPECTRAL_USE_RESIDUAL_STATS:-True}
 DIRECT_SPECTRAL_USE_POWER_RATIO=${DIRECT_SPECTRAL_USE_POWER_RATIO:-True}
+DIRECT_SPECTRAL_INCLUDE_MEAN_CONTEXT=${DIRECT_SPECTRAL_INCLUDE_MEAN_CONTEXT:-False}
+DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE=${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE:-5}
 
+read -r -a VARIANT_LIST <<< "${VARIANTS}"
 read -r -a MODEL_LIST <<< "${MODELS}"
 read -r -a DATASET_LIST <<< "${DATASETS}"
 read -r -a PRED_LEN_LIST <<< "${PRED_LENS}"
@@ -162,19 +166,86 @@ run_to_log() {
   fi
 }
 
-direct_spectral_variant() {
-  echo "dsa_k${DIRECT_SPECTRAL_K}_hist${DIRECT_SPECTRAL_HISTORY_SIZE}_proj${DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM}_stats${DIRECT_SPECTRAL_USE_RESIDUAL_STATS}_power${DIRECT_SPECTRAL_USE_POWER_RATIO}" | tr ' /,' '___'
+direct_spectral_variant_settings() {
+  local variant="${1}"
+  case "${variant}" in
+    dsa_proj4)
+      echo "8 8 4 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_proj8_default)
+      echo "8 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_proj12)
+      echo "8 8 12 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_proj16)
+      echo "8 8 16 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_k4_proj8)
+      echo "4 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_k8_proj8_default)
+      echo "8 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_k12_proj8)
+      echo "12 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_hist4_proj8)
+      echo "8 4 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_hist8_proj8_default)
+      echo "8 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_hist16_proj8)
+      echo "8 16 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_raw19_no_projection)
+      echo "8 8 0 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_no_power_ratio)
+      echo "8 8 8 True False False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_no_residual_stats)
+      echo "8 8 8 False True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    dsa_concat_mean_context_diagnostic)
+      echo "8 8 8 True True True ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    custom)
+      echo "${DIRECT_SPECTRAL_K} ${DIRECT_SPECTRAL_HISTORY_SIZE} ${DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM} ${DIRECT_SPECTRAL_USE_RESIDUAL_STATS} ${DIRECT_SPECTRAL_USE_POWER_RATIO} ${DIRECT_SPECTRAL_INCLUDE_MEAN_CONTEXT} ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      ;;
+    *)
+      echo "Unsupported DIRECT_SPECTRAL variant: ${variant}" >&2
+      return 1
+      ;;
+  esac
+}
+
+is_targeted_subset_pair() {
+  local dataset="${1}"
+  local pred_len="${2}"
+  case "${dataset}_${pred_len}" in
+    ETTm1_336|weather_720) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 run_direct_spectral_one() {
-  local model="${1}"
-  local dataset="${2}"
-  local pred_len="${3}"
-  local seed="${4}"
+  local variant_tag="${1}"
+  local model="${2}"
+  local dataset="${3}"
+  local pred_len="${4}"
+  local seed="${5}"
   local checkpoint_dir
   checkpoint_dir="$(checkpoint_dir_for "${model}" "${dataset}" "${pred_len}" "${seed}")"
-  local variant_tag
-  variant_tag="$(direct_spectral_variant)"
+  local spectral_k
+  local history_size
+  local context_projection_dim
+  local use_residual_stats
+  local use_power_ratio
+  local include_mean_context
+  local mean_context_size
+  read -r spectral_k history_size context_projection_dim use_residual_stats use_power_ratio include_mean_context mean_context_size < <(direct_spectral_variant_settings "${variant_tag}")
 
   require_data "${dataset}" || return
   require_checkpoint "${checkpoint_dir}" || return
@@ -224,11 +295,13 @@ run_direct_spectral_one() {
     TTA.COSA.ADAPTER_LAYERS 1 \
     TTA.COSA.VAR_WISE_GATING True \
     TTA.DIRECT_SPECTRAL.ENABLED True \
-    TTA.DIRECT_SPECTRAL.K "${DIRECT_SPECTRAL_K}" \
-    TTA.DIRECT_SPECTRAL.HISTORY_SIZE "${DIRECT_SPECTRAL_HISTORY_SIZE}" \
-    TTA.DIRECT_SPECTRAL.CONTEXT_PROJECTION_DIM "${DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM}" \
-    TTA.DIRECT_SPECTRAL.USE_RESIDUAL_STATS "${DIRECT_SPECTRAL_USE_RESIDUAL_STATS}" \
-    TTA.DIRECT_SPECTRAL.USE_POWER_RATIO "${DIRECT_SPECTRAL_USE_POWER_RATIO}" \
+    TTA.DIRECT_SPECTRAL.K "${spectral_k}" \
+    TTA.DIRECT_SPECTRAL.HISTORY_SIZE "${history_size}" \
+    TTA.DIRECT_SPECTRAL.CONTEXT_PROJECTION_DIM "${context_projection_dim}" \
+    TTA.DIRECT_SPECTRAL.USE_RESIDUAL_STATS "${use_residual_stats}" \
+    TTA.DIRECT_SPECTRAL.USE_POWER_RATIO "${use_power_ratio}" \
+    TTA.DIRECT_SPECTRAL.INCLUDE_MEAN_CONTEXT "${include_mean_context}" \
+    TTA.DIRECT_SPECTRAL.MEAN_CONTEXT_SIZE "${mean_context_size}" \
     TTA.DIRECT_SPECTRAL.LOG_CSV_PATH "${log_csv}" \
     RESULT_DIR "./results/DIRECT_SPECTRAL/${variant_tag}/"
 }
@@ -236,14 +309,19 @@ run_direct_spectral_one() {
 init_failure_log
 
 if has_stage direct_spectral; then
+  for variant in "${VARIANT_LIST[@]}"; do
   for seed in "${SEED_LIST[@]}"; do
     for model in "${MODEL_LIST[@]}"; do
       for dataset in "${DATASET_LIST[@]}"; do
         for pred_len in "${PRED_LEN_LIST[@]}"; do
-          run_with_recovery direct_spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "$(direct_spectral_variant)" \
-            run_direct_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+          if ! is_targeted_subset_pair "${dataset}" "${pred_len}"; then
+            continue
+          fi
+          run_with_recovery direct_spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" \
+            run_direct_spectral_one "${variant}" "${model}" "${dataset}" "${pred_len}" "${seed}"
         done
       done
     done
+  done
   done
 fi

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect baseline/COSA results into a flat CSV table."""
+"""Collect baseline/COSA/COSA_SPECTRAL results into a flat CSV table."""
 
 from __future__ import annotations
 
@@ -51,7 +51,13 @@ def infer_fields(path: Path, root: Path) -> dict[str, str]:
         "log_path": str(path),
     }
 
-    if "SIMPLE" in parts:
+    if "COSA_SPECTRAL" in parts:
+        idx = parts.index("COSA_SPECTRAL")
+        fields["family"] = "COSA_SPECTRAL"
+        fields["variant"] = parts[idx + 1] if len(parts) > idx + 1 else ""
+        fields["model"] = parts[idx + 2] if len(parts) > idx + 2 else ""
+        fields["dataset"] = parts[idx + 3] if len(parts) > idx + 3 else ""
+    elif "SIMPLE" in parts:
         idx = parts.index("SIMPLE")
         fields["family"] = "SIMPLE"
         if len(parts) > idx + 4:
@@ -287,6 +293,8 @@ def family_for_variant(variant: str) -> str:
         return "BASELINE"
     if variant.startswith("cosa_"):
         return "SIMPLE"
+    if variant.startswith("spectral_"):
+        return "COSA_SPECTRAL"
     return ""
 
 

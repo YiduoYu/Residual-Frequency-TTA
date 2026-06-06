@@ -37,6 +37,8 @@ class DirectSpectralContextBuilder:
         history_size=8,
         use_power_ratio=True,
         use_residual_stats=True,
+        include_mean_context=False,
+        mean_context_size=5,
         eps=1e-6,
     ):
         self.pred_len = int(pred_len)
@@ -45,12 +47,16 @@ class DirectSpectralContextBuilder:
         self.history_size = int(history_size)
         self.use_power_ratio = _as_bool(use_power_ratio)
         self.use_residual_stats = _as_bool(use_residual_stats)
+        self.include_mean_context = _as_bool(include_mean_context)
+        self.mean_context_size = int(mean_context_size)
         self.eps = float(eps)
-        self.raw_context_dim = (
+        self.spectral_context_dim = (
             2 * self.spectral_k
             + int(self.use_power_ratio)
             + 2 * int(self.use_residual_stats)
         )
+        self.mean_context_dim = self.mean_context_size if self.include_mean_context else 0
+        self.raw_context_dim = self.spectral_context_dim + self.mean_context_dim
 
     def _zero_context(self, batch_size, device, dtype):
         return torch.zeros(
@@ -60,6 +66,9 @@ class DirectSpectralContextBuilder:
             device=device,
             dtype=dtype,
         )
+
+    def _zero_spectral_context(self, device, dtype):
+        return torch.zeros(self.n_vars, self.spectral_context_dim, device=device, dtype=dtype)
 
     def _coerce_profile(self, profile, device, dtype):
         profile = torch.as_tensor(profile, device=device, dtype=dtype).detach()
@@ -73,17 +82,43 @@ class DirectSpectralContextBuilder:
             raise ValueError(f"residual_profile has {profile.shape[1]} variables, expected {self.n_vars}")
         return profile
 
-    def build(self, sample_history, batch_size, device=None, dtype=torch.float32):
-        device = device if device is not None else torch.device("cpu")
-        history_entries = list(sample_history)[-max(self.history_size, 0):]
-        profiles = []
-        for entry in history_entries:
-            if not isinstance(entry, dict) or entry.get("residual_profile") is None:
-                continue
-            profiles.append(self._coerce_profile(entry["residual_profile"], device, dtype))
+    def _coerce_var_vector(self, value, device, dtype, name):
+        vector = torch.as_tensor(value, device=device, dtype=dtype).detach()
+        if vector.dim() == 0:
+            vector = vector.view(1)
+        if vector.dim() != 1:
+            vector = vector.reshape(-1)
+        if vector.shape[0] == 1 and self.n_vars > 1:
+            vector = vector.expand(self.n_vars)
+        if vector.shape[0] != self.n_vars:
+            raise ValueError(f"{name} has {vector.shape[0]} variables, expected {self.n_vars}")
+        return vector
 
+    def _build_mean_context(self, sample_history, device, dtype):
+        if not self.include_mean_context or self.mean_context_size <= 0:
+            return None
+
+        values = []
+        for entry in reversed(list(sample_history)):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("target_mean_var") is not None:
+                values.append(self._coerce_var_vector(entry["target_mean_var"], device, dtype, "target_mean_var"))
+            elif entry.get("target_mean") is not None:
+                values.append(self._coerce_var_vector(entry["target_mean"], device, dtype, "target_mean"))
+            if len(values) >= self.mean_context_size:
+                break
+
+        if not values:
+            return torch.zeros(self.n_vars, self.mean_context_size, device=device, dtype=dtype)
+
+        while len(values) < self.mean_context_size:
+            values.append(values[-1])
+        return torch.stack(values[:self.mean_context_size], dim=-1)
+
+    def _build_spectral_context(self, profiles, device, dtype):
         if not profiles:
-            return self._zero_context(batch_size, device, dtype)
+            return self._zero_spectral_context(device, dtype)
 
         profile = torch.stack(profiles, dim=0).mean(dim=0)
         residual_mean = profile.mean(dim=0)
@@ -119,6 +154,21 @@ class DirectSpectralContextBuilder:
             context_parts.append(residual_mean.unsqueeze(-1))
             context_parts.append(residual_scale.unsqueeze(-1))
 
+        return torch.cat(context_parts, dim=-1).to(dtype=dtype)
+
+    def build(self, sample_history, batch_size, device=None, dtype=torch.float32):
+        device = device if device is not None else torch.device("cpu")
+        history_entries = list(sample_history)[-max(self.history_size, 0):]
+        profiles = []
+        for entry in history_entries:
+            if not isinstance(entry, dict) or entry.get("residual_profile") is None:
+                continue
+            profiles.append(self._coerce_profile(entry["residual_profile"], device, dtype))
+
+        context_parts = [self._build_spectral_context(profiles, device, dtype)]
+        mean_context = self._build_mean_context(history_entries, device, dtype)
+        if mean_context is not None:
+            context_parts.append(mean_context)
         context = torch.cat(context_parts, dim=-1).to(dtype=dtype)
         return context.unsqueeze(0).expand(int(batch_size), -1, -1).contiguous()
 
@@ -199,6 +249,8 @@ class DirectSpectralAdapter(SimpleAdapter):
         self.context_projection_dim = int(getattr(direct_cfg, "CONTEXT_PROJECTION_DIM", 8))
         self.use_residual_stats = _as_bool(getattr(direct_cfg, "USE_RESIDUAL_STATS", True))
         self.use_power_ratio = _as_bool(getattr(direct_cfg, "USE_POWER_RATIO", True))
+        self.include_mean_context = _as_bool(getattr(direct_cfg, "INCLUDE_MEAN_CONTEXT", False))
+        self.mean_context_size = int(getattr(direct_cfg, "MEAN_CONTEXT_SIZE", 5))
         self.param_budget_multiplier = float(getattr(direct_cfg, "PARAM_BUDGET_MULTIPLIER", 1.25))
         self.log_csv_path = getattr(direct_cfg, "LOG_CSV_PATH", "")
 
@@ -212,6 +264,8 @@ class DirectSpectralAdapter(SimpleAdapter):
             history_size=self.history_size,
             use_power_ratio=self.use_power_ratio,
             use_residual_stats=self.use_residual_stats,
+            include_mean_context=self.include_mean_context,
+            mean_context_size=self.mean_context_size,
         )
         self.correction = DirectSpectralCorrection(
             pred_len=cfg.DATA.PRED_LEN,
@@ -574,6 +628,9 @@ class DirectSpectralAdapter(SimpleAdapter):
             "use_context_projection": bool(self.correction.use_context_projection),
             "use_power_ratio": bool(self.use_power_ratio),
             "use_residual_stats": bool(self.use_residual_stats),
+            "include_mean_context": bool(self.include_mean_context),
+            "mean_context_size": int(self.mean_context_size),
+            "spectral_context_dim": int(self.context_builder.spectral_context_dim),
             "spectral_k": int(self.spectral_k),
             "history_size": int(self.history_size),
             "trainable_parameter_count": int(trainable_parameter_count),
