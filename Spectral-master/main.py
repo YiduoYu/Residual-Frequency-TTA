@@ -24,8 +24,6 @@ from trainer import build_trainer
 from predictor import Predictor
 from utils.misc import set_seeds, set_devices
 from tta.tafas import build_adapter
-import tta.cosa as cosa
-import tta.cosa_spectral as cosa_spectral
 import tta.direct_spectral as direct_spectral
 import tta.petsa as petsa
 import tta.dynatta as dynatta
@@ -85,15 +83,6 @@ def main():
             or "DIRECT_SPECTRAL" in cfg.RESULT_DIR
         ):
             adapter = direct_spectral.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'COSA_SPECTRAL' in cfg.RESULT_DIR:
-            adapter = cosa_spectral.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'SIMPLE' in cfg.RESULT_DIR:
-            # print("SIMPLE ADAPTER")
-            adapter = cosa.build_adapter(cfg, model, norm_module=norm_module)
             adapter.adapt()
             adapter.count_parameters()
         elif 'DYNATTA' in cfg.RESULT_DIR:

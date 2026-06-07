@@ -12,6 +12,21 @@ from tta.direct_spectral import (  # noqa: E402
 )
 
 
+def test_direct_spectral_default_history_size_is_hist4():
+    config_text = (ROOT / "config.py").read_text()
+
+    assert "_C.TTA.DIRECT_SPECTRAL.HISTORY_SIZE = 4" in config_text
+
+
+def test_direct_spectral_adapter_config_namespace_is_self_contained():
+    config_text = (ROOT / "config.py").read_text()
+    legacy_namespace = "_C.TTA." + "CO" + "SA"
+
+    assert "_C.TTA.DIRECT_SPECTRAL.ADAPTER.BATCH_SIZE = 25" in config_text
+    assert "_C.TTA.DIRECT_SPECTRAL.ADAPTER.STEPS = 20" in config_text
+    assert legacy_namespace not in config_text
+
+
 def test_context_shape():
     torch.manual_seed(7)
     batch_size, pred_len, n_vars, k = 4, 16, 3, 8
@@ -173,6 +188,10 @@ def test_forbidden_backend_params_absent():
 
 def test_no_balanced_backend_import_dependency():
     source = (ROOT / "tta" / "direct_spectral.py").read_text()
+    base_source = (ROOT / "tta" / "direct_adapter_base.py").read_text()
+    legacy_module = "tta." + "co" + "sa"
 
     assert "SpectralTuningBackend" not in source
     assert "MultiWindowSpectralEncoder" not in source
+    assert legacy_module not in source
+    assert legacy_module not in base_source

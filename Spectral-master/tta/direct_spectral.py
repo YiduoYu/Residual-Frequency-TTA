@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.optimizer import get_optimizer
-from tta.cosa import SimpleAdapter, SimpleOutputAdapter, forecast, prepare_inputs
+from tta.direct_adapter_base import DirectAdapterBase, DirectOutputAdapter, forecast, prepare_inputs
 
 
 def _as_bool(value):
@@ -207,7 +207,7 @@ class DirectSpectralCorrection(nn.Module):
         else:
             self.context_projector = None
 
-        self.output_adapter = SimpleOutputAdapter(
+        self.output_adapter = DirectOutputAdapter(
             pred_len=self.pred_len,
             buffer_context_size=self.effective_context_dim,
             n_vars=self.n_vars,
@@ -239,7 +239,7 @@ class DirectSpectralCorrection(nn.Module):
         return self.output_adapter(pred, context)
 
 
-class DirectSpectralAdapter(SimpleAdapter):
+class DirectSpectralAdapter(DirectAdapterBase):
     def __init__(self, cfg, model, norm_module=None):
         super().__init__(cfg, model, norm_module=norm_module)
         direct_cfg = cfg.TTA.DIRECT_SPECTRAL
@@ -296,7 +296,7 @@ class DirectSpectralAdapter(SimpleAdapter):
         return self.correction.effective_context_dim
 
     def _estimate_output_adapter_params(self, context_dim):
-        adapter = SimpleOutputAdapter(
+        adapter = DirectOutputAdapter(
             pred_len=self.cfg.DATA.PRED_LEN,
             buffer_context_size=int(context_dim),
             n_vars=self.cfg.DATA.N_VAR,
@@ -429,7 +429,7 @@ class DirectSpectralAdapter(SimpleAdapter):
                     self.time_stats["paas_period_calculation"] += time.time() - period_start
                     self.time_counts["paas_period_calculation"] += 1
                 else:
-                    batch_size = getattr(self.cfg.TTA.COSA, "BATCH_SIZE", 64)
+                    batch_size = getattr(self.adapter_cfg, "BATCH_SIZE", 64)
                     calculated_batch_size = batch_size
 
                 batch_end = batch_start + batch_size

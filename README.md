@@ -1,26 +1,30 @@
-# COSA to Spectral Experiment Project
+# Direct Spectral Adapter Experiment Project
 
 ## Direct Spectral Adapter Branch
 
-This branch keeps the original forecasting project intact while adding a
-standalone Direct Spectral Adapter (DSA) path for test-time adaptation.
+This branch keeps the original forecasting project infrastructure intact while
+adding a standalone Direct Spectral Adapter (DSA) path for test-time adaptation.
 
-DSA uses residual-profile spectral context directly with the existing
-`SimpleOutputAdapter`. It is intentionally separate from the Balanced
+DSA uses residual-profile spectral context directly in a lightweight
+output-space correction module. It is intentionally separate from the Balanced
 Spectral-PEFT experiment family and does not use multi-backend PEFT routing.
 
 ## Main Files
 
 - `Spectral-master/tta/direct_spectral.py`: DSA implementation.
+- `Spectral-master/tta/direct_adapter_base.py`: DSA adapter base and output
+  correction layer.
 - `Spectral-master/config.py`: `TTA.DIRECT_SPECTRAL` config surface.
 - `Spectral-master/main.py`: DSA routing through `TTA.DIRECT_SPECTRAL.ENABLED`
   or a `DIRECT_SPECTRAL` result directory.
 - `Spectral-master/tests/test_direct_spectral_adapter.py`: focused DSA tests.
 - `script/2026-06-06_direct_spectral_adapter/run_direct_spectral_hard_subset.sh`:
   hard-subset DSA runner.
+- `docs/2026-06-06_direct_spectral_adapter_hard_subset_diagnosis.md`:
+  hist4 hard-subset diagnosis.
 
-The original Spectral-COSA, COSA, TAFAS, PETSA, DynaTTA, trainer, predictor,
-model, and dataset-loader paths remain part of the base project.
+The base model, trainer, predictor, dataset-loader, TAFAS, PETSA, and DynaTTA
+paths remain part of the runnable project infrastructure.
 
 ## Runner
 
@@ -69,5 +73,4 @@ or synced GPU result trees. In particular, keep these local-only:
 - `Spectral-master/results/`
 - any `checkpoint_best.pth`
 
-The original implementation README remains available at
-`Spectral-master/README.md`.
+Historical result artifacts are preserved under `result/`.

@@ -10,6 +10,7 @@ cd "${SPECTRAL_ROOT}"
 PYTHON=${PYTHON:-python}
 DRY_RUN=${DRY_RUN:-True}
 STAGES=${STAGES:-direct_spectral}
+TARGET_SCOPE=${TARGET_SCOPE:-targeted}
 VARIANTS=${VARIANTS:-${VARIANT:-dsa_proj8_default}}
 SKIP_EXISTING=${SKIP_EXISTING:-False}
 CONTINUE_ON_ERROR=${CONTINUE_ON_ERROR:-True}
@@ -39,7 +40,7 @@ WEIGHT_DECAY=${WEIGHT_DECAY:-0.0001}
 CONVERGENCE_THRESHOLD=${CONVERGENCE_THRESHOLD:-1e-6}
 DIRECT_SPECTRAL_PAAS=${DIRECT_SPECTRAL_PAAS:-False}
 DIRECT_SPECTRAL_K=${DIRECT_SPECTRAL_K:-8}
-DIRECT_SPECTRAL_HISTORY_SIZE=${DIRECT_SPECTRAL_HISTORY_SIZE:-8}
+DIRECT_SPECTRAL_HISTORY_SIZE=${DIRECT_SPECTRAL_HISTORY_SIZE:-4}
 DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM=${DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM:-8}
 DIRECT_SPECTRAL_USE_RESIDUAL_STATS=${DIRECT_SPECTRAL_USE_RESIDUAL_STATS:-True}
 DIRECT_SPECTRAL_USE_POWER_RATIO=${DIRECT_SPECTRAL_USE_POWER_RATIO:-True}
@@ -170,46 +171,46 @@ direct_spectral_variant_settings() {
   local variant="${1}"
   case "${variant}" in
     dsa_proj4)
-      echo "8 8 4 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 4 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_proj8_default)
-      echo "8 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_proj12)
-      echo "8 8 12 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 12 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_proj16)
-      echo "8 8 16 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 16 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_k4_proj8)
-      echo "4 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "4 4 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_k8_proj8_default)
-      echo "8 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_k12_proj8)
-      echo "12 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "12 4 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_hist4_proj8)
       echo "8 4 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
-    dsa_hist8_proj8_default)
+    dsa_hist8_proj8|dsa_hist8_proj8_default)
       echo "8 8 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_hist16_proj8)
       echo "8 16 8 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_raw19_no_projection)
-      echo "8 8 0 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 0 True True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_no_power_ratio)
-      echo "8 8 8 True False False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 8 True False False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_no_residual_stats)
-      echo "8 8 8 False True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 8 False True False ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     dsa_concat_mean_context_diagnostic)
-      echo "8 8 8 True True True ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
+      echo "8 4 8 True True True ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
       ;;
     custom)
       echo "${DIRECT_SPECTRAL_K} ${DIRECT_SPECTRAL_HISTORY_SIZE} ${DIRECT_SPECTRAL_CONTEXT_PROJECTION_DIM} ${DIRECT_SPECTRAL_USE_RESIDUAL_STATS} ${DIRECT_SPECTRAL_USE_POWER_RATIO} ${DIRECT_SPECTRAL_INCLUDE_MEAN_CONTEXT} ${DIRECT_SPECTRAL_MEAN_CONTEXT_SIZE}"
@@ -221,12 +222,36 @@ direct_spectral_variant_settings() {
   esac
 }
 
-is_targeted_subset_pair() {
+is_target_scope_pair() {
   local dataset="${1}"
   local pred_len="${2}"
-  case "${dataset}_${pred_len}" in
-    ETTm1_336|weather_720) return 0 ;;
-    *) return 1 ;;
+  case "${TARGET_SCOPE}" in
+    targeted)
+      case "${dataset}_${pred_len}" in
+        ETTm1_336|weather_720) return 0 ;;
+        *) return 1 ;;
+      esac
+      ;;
+    hard_subset)
+      case "${dataset}_${pred_len}" in
+        ETTm1_336|ETTm1_720|weather_336|weather_720) return 0 ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *)
+      echo "Unsupported TARGET_SCOPE: ${TARGET_SCOPE}" >&2
+      return 2
+      ;;
+  esac
+}
+
+validate_target_scope() {
+  case "${TARGET_SCOPE}" in
+    targeted|hard_subset) return 0 ;;
+    *)
+      echo "Unsupported TARGET_SCOPE: ${TARGET_SCOPE}" >&2
+      return 1
+      ;;
   esac
 }
 
@@ -282,18 +307,18 @@ run_direct_spectral_one() {
     TTA.ENABLE True \
     TTA.SOLVER.BASE_LR "${BASE_LR}" \
     TTA.SOLVER.WEIGHT_DECAY "${WEIGHT_DECAY}" \
-    TTA.COSA.BATCH_SIZE "${BATCH_SIZE}" \
-    TTA.COSA.STEPS "${STEPS}" \
-    TTA.COSA.PAAS "${DIRECT_SPECTRAL_PAAS}" \
-    TTA.COSA.PERIOD_N "${PERIOD_N}" \
-    TTA.COSA.FAST_ADAPTATION True \
-    TTA.COSA.ADAPTIVE_LR True \
-    TTA.COSA.PER_BATCH_LR_RESET True \
-    TTA.COSA.MAX_LR "${MAX_LR}" \
-    TTA.COSA.MIN_LR "${MIN_LR}" \
-    TTA.COSA.CONVERGENCE_THRESHOLD "${CONVERGENCE_THRESHOLD}" \
-    TTA.COSA.ADAPTER_LAYERS 1 \
-    TTA.COSA.VAR_WISE_GATING True \
+    TTA.DIRECT_SPECTRAL.ADAPTER.BATCH_SIZE "${BATCH_SIZE}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.STEPS "${STEPS}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.PAAS "${DIRECT_SPECTRAL_PAAS}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.PERIOD_N "${PERIOD_N}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.FAST_ADAPTATION True \
+    TTA.DIRECT_SPECTRAL.ADAPTER.ADAPTIVE_LR True \
+    TTA.DIRECT_SPECTRAL.ADAPTER.PER_BATCH_LR_RESET True \
+    TTA.DIRECT_SPECTRAL.ADAPTER.MAX_LR "${MAX_LR}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.MIN_LR "${MIN_LR}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.CONVERGENCE_THRESHOLD "${CONVERGENCE_THRESHOLD}" \
+    TTA.DIRECT_SPECTRAL.ADAPTER.ADAPTER_LAYERS 1 \
+    TTA.DIRECT_SPECTRAL.ADAPTER.VAR_WISE_GATING True \
     TTA.DIRECT_SPECTRAL.ENABLED True \
     TTA.DIRECT_SPECTRAL.K "${spectral_k}" \
     TTA.DIRECT_SPECTRAL.HISTORY_SIZE "${history_size}" \
@@ -306,6 +331,7 @@ run_direct_spectral_one() {
     RESULT_DIR "./results/DIRECT_SPECTRAL/${variant_tag}/"
 }
 
+validate_target_scope
 init_failure_log
 
 if has_stage direct_spectral; then
@@ -314,7 +340,7 @@ if has_stage direct_spectral; then
     for model in "${MODEL_LIST[@]}"; do
       for dataset in "${DATASET_LIST[@]}"; do
         for pred_len in "${PRED_LEN_LIST[@]}"; do
-          if ! is_targeted_subset_pair "${dataset}" "${pred_len}"; then
+          if ! is_target_scope_pair "${dataset}" "${pred_len}"; then
             continue
           fi
           run_with_recovery direct_spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "${variant}" \
