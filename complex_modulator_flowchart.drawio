@@ -1,0 +1,73 @@
+<mxfile host="Electron" agent="ChatGPT">
+  <diagram id="complex-modulator" name="Complex Modulator">
+    <mxGraphModel dx="1398" dy="825" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1366" pageHeight="768" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=18;fontColor=#000000;fontStyle=0;" value="Complex Modulator M(F&lt;sub&gt;r&lt;/sub&gt;)" vertex="1">
+          <mxGeometry height="35" width="360" x="30" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=13;align=center;verticalAlign=middle;spacing=4;shadow=0;" value="Input" vertex="1">
+          <mxGeometry height="65" width="125" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=13;align=center;verticalAlign=middle;spacing=4;shadow=0;" value="Normalize" vertex="1">
+          <mxGeometry height="65" width="160" x="205" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=13;align=center;verticalAlign=middle;spacing=4;shadow=0;" value="Feature Split" vertex="1">
+          <mxGeometry height="65" width="190" x="410" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=13;align=center;verticalAlign=middle;spacing=4;shadow=0;" value="Stack" vertex="1">
+          <mxGeometry height="65" width="145" x="640" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=13;align=center;verticalAlign=middle;spacing=4;shadow=0;" value="Linear Complex Projection" vertex="1">
+          <mxGeometry height="65" width="220" x="845" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=13;align=center;verticalAlign=middle;spacing=4;shadow=0;" value="Output" vertex="1">
+          <mxGeometry height="65" width="150" x="1120" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="9" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="F&lt;sub&gt;r&lt;/sub&gt;" vertex="1">
+          <mxGeometry height="22" width="125" x="30" y="132" as="geometry" />
+        </mxCell>
+        <mxCell id="10" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="F&lt;sub&gt;r,n&lt;/sub&gt; = F&lt;sub&gt;r&lt;/sub&gt; / sqrt(mean(|F&lt;sub&gt;r&lt;/sub&gt;|&lt;sup&gt;2&lt;/sup&gt;) + ε)" vertex="1">
+          <mxGeometry height="28" width="210" x="180" y="132" as="geometry" />
+        </mxCell>
+        <mxCell id="11" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="Re(F&lt;sub&gt;r,n&lt;/sub&gt;), Im(F&lt;sub&gt;r,n&lt;/sub&gt;), |F&lt;sub&gt;r,n&lt;/sub&gt;|, freq" vertex="1">
+          <mxGeometry height="30" width="210" x="400" y="132" as="geometry" />
+        </mxCell>
+        <mxCell id="12" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="h = [Re, Im, |F|, freq]" vertex="1">
+          <mxGeometry height="28" width="165" x="630" y="132" as="geometry" />
+        </mxCell>
+        <mxCell id="13" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="[Re(M), Im(M)] = W h + b" vertex="1">
+          <mxGeometry height="24" width="240" x="835" y="132" as="geometry" />
+        </mxCell>
+        <mxCell id="14" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="W: [n_freq, n_vars, 4, 2]&lt;br&gt;b: [n_freq, n_vars, 2]" vertex="1">
+          <mxGeometry height="45" width="200" x="855" y="162" as="geometry" />
+        </mxCell>
+        <mxCell id="15" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="M(F&lt;sub&gt;r&lt;/sub&gt;)" vertex="1">
+          <mxGeometry height="22" width="150" x="1120" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="16" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=11;fontColor=#000000;" value="M(F&lt;sub&gt;r&lt;/sub&gt;) = Re(M) + i Im(M)" vertex="1">
+          <mxGeometry height="26" width="200" x="1095" y="146" as="geometry" />
+        </mxCell>
+        <mxCell id="17" edge="1" parent="1" source="3" style="endArrow=block;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;endFill=1;" target="4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" edge="1" parent="1" source="4" style="endArrow=block;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;endFill=1;" target="5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" edge="1" parent="1" source="5" style="endArrow=block;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;endFill=1;" target="6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" edge="1" parent="1" source="6" style="endArrow=block;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;endFill=1;" target="7" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" edge="1" parent="1" source="7" style="endArrow=block;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;endFill=1;" target="8" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gcoU8TezJRshIb5AxOSe-22" parent="1" style="text;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Arial; font-size: 12px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;zero init -&amp;gt; small initial correction&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="1120" y="180" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
