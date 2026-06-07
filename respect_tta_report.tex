@@ -1,0 +1,260 @@
+\documentclass[10pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue
+}
+
+\setlist[itemize]{leftmargin=*, topsep=2pt, itemsep=1pt}
+\setlist[enumerate]{leftmargin=*, topsep=2pt, itemsep=1pt}
+\captionsetup{font=small, labelfont=bf}
+
+\title{\textbf{ReSpect-TTA: Residual-Conditioned Complex Frequency Modulation for Online Test-Time Adaptation in Time-Series Forecasting}}
+\author{
+  Author Name(s) and Student ID(s) to be completed\\
+  Affiliation(s) to be completed
+}
+\date{June 5, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Modern time-series forecasters often degrade after deployment because the statistical structure of the observed stream changes over time. Test-time adaptation (TTA) addresses this problem by updating a small set of parameters during inference after ground truth becomes available, but many output-space adapters mainly correct predictions in the time domain. This project studies ReSpect-TTA, a residual-conditioned complex frequency modulation method for online TTA in long-term time-series forecasting. ReSpect-TTA keeps the base forecasting model frozen, maintains COSA-style online residual memory, and uses the recent residual spectrum to generate a complex modulator applied directly to the current prediction spectrum. The corrected forecast is reconstructed through inverse FFT and controlled by a learned global gate. On the collected grid of 171 model-dataset-horizon conditions, each averaged over three seeds, ReSpect-TTA improves over the no-TTA baseline on 161/171 conditions with an average MSE improvement of 14.37\%. Compared with COSA-Spectral, it wins on 162/171 conditions with an average MSE improvement of 3.07\% and an average MAE improvement of 1.14\%. The strongest gains appear on MICN, exchange-rate, weather, electricity, and several long-horizon settings, while negative transfer remains concentrated on ETTm1/ETTm2 at horizon 720. These results suggest that residual-conditioned complex spectral correction is a promising extension of output-space TTA, but its gate policy still requires further study.
+
+\textbf{Keywords:}~time-series forecasting; test-time adaptation; frequency-domain learning; residual correction; complex modulation; COSA; online adaptation.
+\end{abstract}
+
+\section{Introduction and Problem Definition}
+
+Long-term time-series forecasting models are usually trained on historical data and then evaluated on future streams whose statistical properties may differ from the training distribution. This mismatch is important because mean, variance, periodic structure, and cross-variate relationships can all change over time. As a result, a static forecaster may lose accuracy after deployment even if it performs well on validation data.
+
+Test-time adaptation offers a practical response to this problem. In forecasting, unlike many classification tasks, the true target becomes observable after a delay. This makes it possible to update lightweight adaptation modules online using a regression loss, while leaving the expensive backbone model frozen. COSA follows this idea by correcting the frozen model's output through a context-aware output-space adapter \cite{im2026cosa}.
+
+This project studies a frequency-native extension of that line of work. The main idea is that recent forecast residuals may contain structured frequency information. If a residual pattern repeatedly appears at certain frequencies, then a correction module should not only summarize it in the time domain; it may be useful to directly modulate the prediction spectrum. ReSpect-TTA therefore uses the recent residual spectrum to generate a complex correction operator for the current prediction spectrum.
+
+The project addresses three research questions:
+
+\begin{enumerate}
+  \item Does residual-conditioned complex frequency modulation improve online TTA performance over no-TTA and COSA baselines?
+  \item Does ReSpect-TTA add value beyond COSA-Spectral, where spectral information is used only as time-domain adapter context?
+  \item Which diagnostics identify the next stabilization target for ReSpect-TTA?
+\end{enumerate}
+
+\section{Related Work and Background}
+
+TTA for time-series forecasting differs from vision TTA because labels become available sequentially after prediction. COSA exploits this property through a lightweight adapter that corrects a frozen model's prediction using recent ground-truth statistics and residual signals \cite{im2026cosa}. PETSA provides a related perspective by arguing that parameter-efficient adaptation can update small calibration modules rather than the full forecasting model, and it includes frequency-domain regularization to preserve periodicity \cite{medeiros2025petsa}.
+
+Frequency-domain modeling has also become a common strategy in long-term forecasting. FEDformer combines decomposition with frequency-enhanced Transformer blocks \cite{zhou2022fedformer}. FreTS builds MLP forecasting modules directly in the complex frequency domain and argues that spectral representations provide a global view of temporal structure \cite{yi2023frets}. These works motivate the assumption behind ReSpect-TTA: the spectrum of recent residuals can expose error modes that are difficult to correct through point-wise mappings alone.
+
+Non-stationarity is another important background issue. RevIN removes and restores instance-level statistics to reduce distribution shift \cite{kim2022revin}, while Non-stationary Transformers combine stationarization with de-stationary attention \cite{liu2022nonstationary}. ReSpect-TTA follows this general concern but focuses on the adapter layer instead of replacing the base forecaster.
+
+\section{Methodology}
+
+Let \(f_\theta\) denote a pretrained forecasting model. At test time, the model receives an input window \(X_t\) and produces a prediction \(Y_t^{(0)} = f_\theta(X_t)\) for a horizon of length \(L\). After a delay, the true target \(Y_t\) becomes available. The online adaptation protocol updates only adapter parameters and leaves \(\theta\) frozen. For a completed prediction, the residual is
+\[
+R_t = Y_t - Y_t^{(0)}.
+\]
+ReSpect-TTA keeps a recent residual history and summarizes it as a residual profile \(R_{buf}\). The adapter uses \(R_{buf}\) to condition the next spectral correction.
+
+The active ReSpect-TTA variant is \texttt{adapter\_context\_plus\_complex\_modulation\_high\_gate\_lr}. It first computes real FFTs of the current prediction and residual reference:
+\[
+F_y = \mathrm{rFFT}(Y_t^{(0)}, n=L), \qquad
+F_r = \mathrm{rFFT}(w \odot R_{buf}, n=L),
+\]
+where \(w\) is a Hann window. The residual spectrum is converted into per-frequency, per-variable features:
+\[
+\psi(F_r) = [\Re(F_r), \Im(F_r), |F_r|, \omega],
+\]
+where \(\omega\) is a normalized frequency coordinate. A zero-initialized trainable projection maps these features to a complex modulation operator:
+\[
+M_\phi(F_r) = W_\phi \psi(F_r) + b_\phi.
+\]
+The spectral correction is then
+\[
+Z = M_\phi(F_r) \odot F_y, \qquad
+\Delta Y_t = \mathrm{irFFT}(Z, n=L).
+\]
+Zero initialization is important because the direct correction path initially produces no perturbation. This makes the method identity-safe before online updates learn useful correction structure.
+
+Finally, the correction is mixed back into the frozen prediction through a global gate:
+\[
+\hat{Y}_t = Y_t^{(0)} + g_t \odot \Delta Y_t.
+\]
+The main candidate learns \(g_t\) with a high learning-rate multiplier. Its features include a prediction summary, residual-spectrum energy, and low-frequency residual ratio. Diagnostic variants use fixed gates or gate floors to test whether long-horizon behavior is caused by the gate policy.
+
+\section{Implementation Details}
+
+ReSpect-TTA is implemented as an output-space adapter placed after existing forecasting backbones. The backbone prediction is computed normally and the backbone parameters remain frozen during test-time adaptation. Only the adapter, complex modulation projection, and gate-related parameters are updated online after delayed ground truth becomes available.
+
+The implementation keeps the Spectral-COSA context path active while adding the direct complex modulation path. Therefore, the final candidate has two channels: a time-domain output adapter that receives spectral residual context and a direct spectral path that applies \(M_\phi(F_r)\) to \(F_y\). The main result files are stored under the local project archive:
+\[
+\texttt{result/06.05\_scheme6\_experiment\_records/spectral\_master\_results/summary/}.
+\]
+The main files used for this report include \texttt{scheme6\_full\_context\_plus\_complex\_results.csv}, \texttt{scheme6\_full\_context\_plus\_complex\_averaged.csv}, and \texttt{scheme6\_full\_context\_plus\_complex\_improvement.csv}.
+
+\section{Experiments}
+
+The evaluation follows the existing 5.26-style protocol used in the project. The benchmark grid covers six forecasting backbones: DLinear, FreTS, iTransformer, MICN, OLS, and PatchTST. It covers eight public long-term forecasting benchmark datasets: ETTh1, ETTh2, ETTm1, ETTm2, exchange\_rate, weather, electricity, and traffic. These datasets are distributed in standard forecasting benchmark collections such as Time-Series-Library \cite{tslibdataset,wu2023timesnet}. Prediction horizons are 96, 192, 336, and 720. For each valid averaged condition, results are computed over seeds 0, 1, and 2.
+
+The theoretical grid has \(6 \times 8 \times 4 = 192\) model-dataset-horizon conditions. The collected ReSpect-TTA main-candidate result contains 171 conditions. Twenty-one conditions are absent because valid checkpoints or runs were not available in the collected result set. Therefore, this report only claims results on the 171 collected and comparable conditions.
+
+The main metrics are test MSE and test MAE. Comparisons are made against no-TTA, fixed COSA, PAAS COSA, and COSA-Spectral where available. COSA-Spectral is the most important reference because it already uses residual FFT features as context, so it tests whether direct spectral modulation adds value beyond spectral feature augmentation.
+
+\section{Results and Analysis}
+
+Table~\ref{tab:aggregate} summarizes the main candidate against each reference family. ReSpect-TTA performs strongest against no-TTA and the original COSA variants. The comparison against COSA-Spectral is more conservative but still positive: ReSpect-TTA wins on 162 of 171 comparable conditions and improves average MSE by 3.07\%.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Aggregate performance of ReSpect-TTA main candidate.}
+\label{tab:aggregate}
+\begin{tabular}{lrrrrrr}
+\toprule
+Reference & Conditions & MSE wins & Mean MSE & Median MSE & Worst MSE & Mean MAE \\
+ & & & improvement & improvement & improvement & improvement \\
+\midrule
+No-TTA baseline & 171 & 161/171 & +14.37\% & +11.13\% & -3.48\% & +6.81\% \\
+COSA-Spectral & 171 & 162/171 & +3.07\% & +2.72\% & -2.54\% & +1.14\% \\
+COSA fixed & 171 & 168/171 & +8.52\% & +6.37\% & -1.67\% & +3.22\% \\
+COSA PAAS & 171 & 164/171 & +10.34\% & +5.85\% & -0.84\% & +4.55\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:backbone} shows the COSA-Spectral comparison by backbone. ReSpect-TTA improves every collected MICN and iTransformer condition. The gains are smaller for PatchTST and FreTS but remain positive on average.
+
+\begin{table}[h]
+\centering
+\small
+\caption{ReSpect-TTA vs. COSA-Spectral by backbone.}
+\label{tab:backbone}
+\begin{tabular}{lrrr}
+\toprule
+Backbone & Conditions & MSE wins & Mean MSE improvement \\
+\midrule
+DLinear & 32 & 30/32 & +2.70\% \\
+FreTS & 28 & 25/28 & +2.65\% \\
+MICN & 32 & 32/32 & +4.86\% \\
+OLS & 27 & 25/27 & +2.70\% \\
+PatchTST & 24 & 22/24 & +2.41\% \\
+iTransformer & 28 & 28/28 & +2.78\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The horizon-wise pattern indicates that the gains are not limited to short horizons. Against COSA-Spectral, ReSpect-TTA wins on 42/43 conditions at horizon 96, 43/43 at horizon 192, 42/43 at horizon 336, and 35/42 at horizon 720. The mean MSE improvements are +3.05\%, +3.30\%, +3.25\%, and +2.68\%, respectively. The lower win rate at horizon 720 suggests that long-horizon stability is the main remaining weakness.
+
+The negative-transfer cases are concentrated in ETTm1 and ETTm2 at horizon 720. The worst comparisons against COSA-Spectral are OLS-ETTm2 at 720 (-2.54\%), OLS-ETTm1 at 720 (-2.06\%), FreTS-ETTm1 at 720 (-1.84\%), DLinear-ETTm2 at 720 (-1.79\%), DLinear-ETTm1 at 720 (-1.58\%), and PatchTST-ETTm1 at 720 (-1.05\%). This pattern suggests that recent residual spectra may sometimes fail to extrapolate cleanly to the long-horizon target, causing the correction to become misaligned.
+
+Gate diagnostics support this interpretation. The \texttt{constant\_gate\_010} variant fixes the global gate at 0.10 for horizon 720 while keeping the context adapter and complex modulation trainable. On the 42 collected horizon-720 conditions, it wins 42/42 against no-TTA and 40/42 against COSA-Spectral, with average MSE improvements of +28.78\% over no-TTA and +3.15\% over COSA-Spectral. This is slightly stronger than the learned high-gate variant on the same long-horizon slice. However, MICN diagnostics show that fixed gates do not consistently beat the learned gate, so the best next step is not simply replacing the learned gate. A better direction is to make the gate horizon-aware or dataset-state-aware while preserving adaptivity.
+
+\section{Conclusion}
+
+ReSpect-TTA is a promising extension of online output-space TTA for time-series forecasting. It preserves the practical structure of COSA: frozen backbone, residual memory, lightweight online updates, and leakage-free use of delayed ground truth. Its main change is to move residual correction into the frequency domain, where recent residual spectra generate a complex modulator applied to the current prediction spectrum.
+
+The current empirical evidence is positive but not final. On 171 collected averaged conditions, ReSpect-TTA improves over no-TTA, fixed COSA, PAAS COSA, and COSA-Spectral in most cases. Its strongest claim is not that it universally dominates all baselines, but that frequency-native residual-conditioned correction adds measurable value beyond spectral context features alone. The remaining long-horizon failures make the next research step clear: stabilize the gate policy and isolate the exact contribution of complex modulation.
+
+\clearpage
+
+\begin{thebibliography}{99}
+
+\bibitem{im2026cosa}
+Im, J., \& Kwon, H.-Y. (2026).
+\textit{COSA: Context-aware output-space adapter for test-time adaptation in time series forecasting}.
+International Conference on Learning Representations.
+\url{https://openreview.net/pdf/4c0fc8945c9af3f17fe1e61c42c6f6d449c76944.pdf}
+
+\bibitem{kim2022revin}
+Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.-H., \& Choo, J. (2022).
+\textit{Reversible instance normalization for accurate time-series forecasting against distribution shift}.
+International Conference on Learning Representations.
+\url{https://openreview.net/forum?id=cGDAkQo1C0p}
+
+\bibitem{liu2024itransformer}
+Liu, Y., Hu, T., Zhang, H., Wu, H., Wang, S., Ma, L., \& Long, M. (2024).
+\textit{iTransformer: Inverted transformers are effective for time series forecasting}.
+International Conference on Learning Representations.
+\url{https://openreview.net/forum?id=JePfAI8fah}
+
+\bibitem{liu2022nonstationary}
+Liu, Y., Wu, H., Wang, J., \& Long, M. (2022).
+\textit{Non-stationary transformers: Exploring the stationarity in time series forecasting}.
+Advances in Neural Information Processing Systems, 35.
+\url{https://proceedings.neurips.cc/paper_files/paper/2022/hash/4054556fcaa934b0bf76da52cf4f92cb-Abstract-Conference.html}
+
+\bibitem{medeiros2025petsa}
+Medeiros, H. R., Sharifi-Noghabi, H., Oliveira, G. L., \& Irandoust, S. (2025).
+\textit{Accurate parameter-efficient test-time adaptation for time series forecasting}.
+arXiv.
+\url{https://doi.org/10.48550/arXiv.2506.23424}
+
+\bibitem{nie2023patchtst}
+Nie, Y., Nguyen, N. H., Sinthong, P., \& Kalagnanam, J. (2023).
+\textit{A time series is worth 64 words: Long-term forecasting with transformers}.
+International Conference on Learning Representations.
+\url{https://doi.org/10.48550/arXiv.2211.14730}
+
+\bibitem{wang2023micn}
+Wang, H., Peng, J., Huang, F., Wang, J., Chen, J., \& Xiao, Y. (2023).
+\textit{MICN: Multi-scale local and global context modeling for long-term series forecasting}.
+International Conference on Learning Representations.
+\url{https://openreview.net/forum?id=zt53IDUR1U}
+
+\bibitem{tslibdataset}
+Time-Series-Library. (2024).
+\textit{Time-Series-Library dataset card}.
+Hugging Face.
+\url{https://huggingface.co/datasets/lalababa/Time-Series-Library}
+
+\bibitem{wu2023timesnet}
+Wu, H., Hu, T., Liu, Y., Zhou, H., Wang, J., \& Long, M. (2023).
+\textit{TimesNet: Temporal 2D-variation modeling for general time series analysis}.
+International Conference on Learning Representations.
+\url{https://openreview.net/forum?id=ju_Uqw384Oq}
+
+\bibitem{yi2023frets}
+Yi, K., Zhang, Q., Fan, W., Wang, S., Wang, P., He, H., Lian, D., An, N., Cao, L., \& Niu, Z. (2023).
+\textit{Frequency-domain MLPs are more effective learners in time series forecasting}.
+Advances in Neural Information Processing Systems, 36.
+\url{https://proceedings.neurips.cc/paper/2023/hash/f1d16af76939f476b5f040fd1398c0a3-Abstract.html}
+
+\bibitem{zeng2023dlinear}
+Zeng, A., Chen, M., Zhang, L., \& Xu, Q. (2023).
+\textit{Are transformers effective for time series forecasting?}
+Proceedings of the AAAI Conference on Artificial Intelligence.
+\url{https://doi.org/10.48550/arXiv.2205.13504}
+
+\bibitem{zhou2022fedformer}
+Zhou, T., Ma, Z., Wen, Q., Wang, X., Sun, L., \& Jin, R. (2022).
+\textit{FEDformer: Frequency enhanced decomposed transformer for long-term series forecasting}.
+International Conference on Machine Learning.
+\url{https://doi.org/10.48550/arXiv.2201.12740}
+
+\end{thebibliography}
+
+\section*{AI Usage Statement}
+
+AI tools were used to help understand related machine learning concepts, organize the report into LaTeX format, improve wording, and check clarity. The experimental design, implementation, result verification, numerical claims, analysis, and final conclusions were completed and verified by the author(s).
+
+% For a group project, uncomment and complete this section.
+% \section*{Team Contribution Statement}
+% Student A (ID): contribution to be completed.
+% Student B (ID): contribution to be completed.
+% Student C (ID): contribution to be completed.
+
+\end{document}

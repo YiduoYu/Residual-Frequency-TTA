@@ -1,7 +1,7 @@
-# Peer Review Package: Scheme6-B Paper Draft
+# Peer Review Package: ReSpect-TTA Paper Draft
 
-**Manuscript:** Scheme6-B: Residual-Conditioned Complex Frequency Modulation for Online Test-Time Adaptation in Time-Series Forecasting  
-**Reviewed file:** `paper/scheme6b_paper_draft.md`  
+**Manuscript:** ReSpect-TTA: Residual-Conditioned Complex Frequency Modulation for Online Test-Time Adaptation in Time-Series Forecasting  
+**Reviewed file:** `paper/respect_tta_paper_draft.md`  
 **Review date:** 2026-06-05  
 **Review round:** Round 1 pre-submission review  
 **Mode:** Full academic-paper-reviewer panel  
@@ -20,7 +20,7 @@
 
 **Decision: Major Revision**
 
-The manuscript has a plausible and interesting contribution, but it is not yet ready for submission as a full empirical ML paper. The core idea is clear: Scheme6-B moves COSA-style residual correction from a time-domain context adapter toward a residual-conditioned complex frequency operator. The early result set is promising, especially the consistent gains over no-TTA and the positive average improvement over COSA-Spectral. However, the current paper is closer to a well-organized project report than a defensible conference submission. The main blockers are incomplete experimental coverage, insufficient ablation isolation, absence of statistical uncertainty analysis, and a contribution claim that depends on a combined variant whose components are not yet separated.
+The manuscript has a plausible and interesting contribution, but it is not yet ready for submission as a full empirical ML paper. The core idea is clear: ReSpect-TTA moves COSA-style residual correction from a time-domain context adapter toward a residual-conditioned complex frequency operator. The early result set is promising, especially the consistent gains over no-TTA and the positive average improvement over COSA-Spectral. However, the current paper is closer to a well-organized project report than a defensible conference submission. The main blockers are incomplete experimental coverage, insufficient ablation isolation, absence of statistical uncertainty analysis, and a contribution claim that depends on a combined variant whose components are not yet separated.
 
 The decision is Major Revision rather than Reject because the method is technically coherent, the reported comparisons are transparent about the 171/192 grid limitation, and the negative-transfer analysis already points toward actionable follow-up experiments. The decision is not Minor Revision because the missing experiments and ablations affect the central causal claim of the paper.
 
@@ -38,11 +38,11 @@ The decision is Major Revision rather than Reject because the method is technica
 
 ### Summary Assessment
 
-The manuscript presents Scheme6-B, an online TTA method that uses recent residual spectra to generate a complex frequency-domain modulation of the current prediction spectrum. The paper is readable, technically motivated, and conservative in several important places, especially where it states that the current result is a "main candidate" rather than a final method. The reported gains over no-TTA, COSA, PAAS COSA, and COSA-Spectral suggest the direction is worth developing. The paper's main weakness is maturity. The central empirical claim is based on a combined variant, `adapter_context_plus_complex_modulation_high_gate_lr`, but the paper does not yet isolate the incremental value of the direct complex modulation path from the retained Spectral-COSA context path or the high-gate learning-rate policy. For a conference submission, this is a major gap because readers need to know what component caused the improvement.
+The manuscript presents ReSpect-TTA, an online TTA method that uses recent residual spectra to generate a complex frequency-domain modulation of the current prediction spectrum. The paper is readable, technically motivated, and conservative in several important places, especially where it states that the current result is a "main candidate" rather than a final method. The reported gains over no-TTA, COSA, PAAS COSA, and COSA-Spectral suggest the direction is worth developing. The paper's main weakness is maturity. The central empirical claim is based on a combined variant, `adapter_context_plus_complex_modulation_high_gate_lr`, but the paper does not yet isolate the incremental value of the direct complex modulation path from the retained Spectral-COSA context path or the high-gate learning-rate policy. For a conference submission, this is a major gap because readers need to know what component caused the improvement.
 
 ### Strengths
 
-**S1: Clear mechanism statement.** The Introduction and Method sections consistently describe the correction as \(M(F_r) \odot F_y\), which helps distinguish Scheme6-B from residual injection and from COSA-Spectral.
+**S1: Clear mechanism statement.** The Introduction and Method sections consistently describe the correction as \(M(F_r) \odot F_y\), which helps distinguish ReSpect-TTA from residual injection and from COSA-Spectral.
 
 **S2: Conservative result framing.** The paper states that the current grid has 171 collected conditions rather than the full 192-condition grid. This transparency reduces the risk of overstating the evidence.
 
@@ -64,13 +64,13 @@ The manuscript presents Scheme6-B, an online TTA method that uses recent residua
 
 **W3: The paper lacks a figure.**  
 **Problem:** The architecture is described in equations but no figure is included.  
-**Why it matters:** A frequency-domain adapter paper needs a visual pipeline to make the COSA-Spectral vs Scheme6-B distinction immediately legible.  
+**Why it matters:** A frequency-domain adapter paper needs a visual pipeline to make the COSA-Spectral vs ReSpect-TTA distinction immediately legible.  
 **Suggestion:** Include one architecture figure and one aggregate result figure.  
 **Severity:** Minor/Major depending on target venue.
 
 ### EIC Questions
 
-1. What is the minimal Scheme6-B component that still beats COSA-Spectral?
+1. What is the minimal ReSpect-TTA component that still beats COSA-Spectral?
 2. Are the 21 missing grid points caused by missing checkpoints, runtime failures, or incompatible model-dataset combinations?
 3. Is the target venue a course paper, workshop paper, or main-track ML conference? The evidence threshold differs substantially.
 
@@ -103,7 +103,7 @@ The empirical section is organized, but the statistical reporting is not yet str
 **W1: No seed-level uncertainty or significance.**  
 **Problem:** Tables report aggregate percentage improvements but not confidence intervals, standard deviations, or paired tests.  
 **Why it matters:** The key COSA-Spectral improvement is modest. Without uncertainty, the paper cannot distinguish stable improvement from noise.  
-**Suggestion:** Add per-condition seed-level paired deltas, bootstrap CIs over model-dataset-horizon conditions, and a sign test or Wilcoxon signed-rank test for Scheme6-B vs COSA-Spectral.  
+**Suggestion:** Add per-condition seed-level paired deltas, bootstrap CIs over model-dataset-horizon conditions, and a sign test or Wilcoxon signed-rank test for ReSpect-TTA vs COSA-Spectral.  
 **Severity:** Critical/Major.
 
 **W2: Aggregate averaging may overweight easy conditions.**  
@@ -121,7 +121,7 @@ The empirical section is organized, but the statistical reporting is not yet str
 **W4: Runtime reporting is absent from the paper.**  
 **Problem:** TTA methods impose online cost, but the draft does not report adaptation time, throughput, or parameter counts.  
 **Why it matters:** The claimed practical value of lightweight adaptation depends on computational overhead.  
-**Suggestion:** Add parameter count and throughput table for COSA, COSA-Spectral, and Scheme6-B.  
+**Suggestion:** Add parameter count and throughput table for COSA, COSA-Spectral, and ReSpect-TTA.  
 **Severity:** Major.
 
 ### Methodology Questions
@@ -129,7 +129,7 @@ The empirical section is organized, but the statistical reporting is not yet str
 1. Are the improvements computed from seed-matched comparisons for every baseline, or are some baselines missing seeds?
 2. Does the online adaptation update after every batch with the same protocol across all baselines?
 3. What is the parameter count of the direct complex modulation path as a function of horizon and variable count?
-4. Are standard deviations in the raw CSV available for the main Scheme6-B and reference rows?
+4. Are standard deviations in the raw CSV available for the main ReSpect-TTA and reference rows?
 
 ### Methodology Scores
 
@@ -145,20 +145,20 @@ The empirical section is organized, but the statistical reporting is not yet str
 
 ### Summary Assessment
 
-The paper is well positioned around COSA, COSA-Spectral, frequency-domain forecasting, and non-stationarity. It correctly treats Scheme6-B as an adapter-level contribution rather than a new base forecaster. The most valuable conceptual distinction is between spectral features as context and spectral operators as correction. That said, the related work is too thin for a paper claiming a new spectral TTA mechanism. It cites appropriate anchor papers, but it does not yet develop a tight taxonomy of output-space TTA, spectral forecasting, and residual/error modeling. It also does not discuss whether similar residual correction ideas exist in classical forecasting or signal processing.
+The paper is well positioned around COSA, COSA-Spectral, frequency-domain forecasting, and non-stationarity. It correctly treats ReSpect-TTA as an adapter-level contribution rather than a new base forecaster. The most valuable conceptual distinction is between spectral features as context and spectral operators as correction. That said, the related work is too thin for a paper claiming a new spectral TTA mechanism. It cites appropriate anchor papers, but it does not yet develop a tight taxonomy of output-space TTA, spectral forecasting, and residual/error modeling. It also does not discuss whether similar residual correction ideas exist in classical forecasting or signal processing.
 
 ### Strengths
 
 **S1: Correct positioning against COSA-Spectral.** The paper identifies COSA-Spectral as the most relevant baseline rather than relying only on no-TTA.
 
-**S2: Good distinction between adapter and backbone.** The paper states that Scheme6-B is not a new base forecaster, which prevents scope confusion.
+**S2: Good distinction between adapter and backbone.** The paper states that ReSpect-TTA is not a new base forecaster, which prevents scope confusion.
 
 **S3: Frequency-domain motivation is plausible.** The use of FEDformer and FreTS as background is appropriate because both support the value of frequency-domain representations.
 
 ### Weaknesses
 
 **W1: Literature review lacks residual/error-correction context.**  
-**Problem:** The paper jumps from COSA and frequency forecasting to Scheme6-B without reviewing residual correction, error compensation, or hybrid residual modeling traditions.  
+**Problem:** The paper jumps from COSA and frequency forecasting to ReSpect-TTA without reviewing residual correction, error compensation, or hybrid residual modeling traditions.  
 **Why it matters:** Reviewers may see the idea as obvious if residual-error correction literature is not acknowledged.  
 **Suggestion:** Add a subsection on residual correction/error compensation in forecasting, including classical residual modeling and recent neural residual correction if applicable.  
 **Severity:** Major.
@@ -178,7 +178,7 @@ The paper is well positioned around COSA, COSA-Spectral, frequency-domain foreca
 ### Domain Questions
 
 1. Are there existing spectral residual correction or frequency compensation methods that should be compared conceptually?
-2. How does Scheme6-B relate to frequency compensation layers such as FCP-style models, if relevant?
+2. How does ReSpect-TTA relate to frequency compensation layers such as FCP-style models, if relevant?
 3. Why is complex modulation preferable to separate real-valued amplitude gating plus phase correction?
 
 ### Domain Scores
@@ -195,7 +195,7 @@ The paper is well positioned around COSA, COSA-Spectral, frequency-domain foreca
 
 ### Summary Assessment
 
-The manuscript has practical appeal because it targets a realistic deployment problem: forecasters drift after deployment, and a lightweight online adapter is easier to use than retraining full backbones. The paper also correctly avoids claiming that Scheme6-B replaces all base models. The missing practical analysis is cost and operational behavior. TTA methods must be evaluated not only by MSE/MAE but also by online latency, memory, update frequency, and failure modes when residuals are noisy or delayed. The current paper would be more convincing if it included deployment-oriented diagnostics.
+The manuscript has practical appeal because it targets a realistic deployment problem: forecasters drift after deployment, and a lightweight online adapter is easier to use than retraining full backbones. The paper also correctly avoids claiming that ReSpect-TTA replaces all base models. The missing practical analysis is cost and operational behavior. TTA methods must be evaluated not only by MSE/MAE but also by online latency, memory, update frequency, and failure modes when residuals are noisy or delayed. The current paper would be more convincing if it included deployment-oriented diagnostics.
 
 ### Strengths
 
@@ -229,7 +229,7 @@ The manuscript has practical appeal because it targets a realistic deployment pr
 
 1. What is the latency overhead of FFT/iFFT plus complex modulation relative to COSA-Spectral?
 2. How many batches are required before the residual buffer becomes useful?
-3. Does Scheme6-B degrade gracefully when the residual buffer is empty or stale?
+3. Does ReSpect-TTA degrade gracefully when the residual buffer is empty or stale?
 
 ### Practical Scores
 
@@ -266,7 +266,7 @@ The strongest objection is that the paper may be attributing improvements to "re
 
 **MAJOR: Baseline tuning fairness is unclear.**  
 **Location:** Experimental Design.  
-**Problem:** Scheme6-B has gate diagnostics and high-gate LR, but the baseline tuning budget for COSA-Spectral is not discussed.  
+**Problem:** ReSpect-TTA has gate diagnostics and high-gate LR, but the baseline tuning budget for COSA-Spectral is not discussed.  
 **Fix:** State whether COSA-Spectral was equally tuned or inherited from prior best settings.
 
 **MINOR: The title may overstate readiness.**  
@@ -279,7 +279,7 @@ The strongest objection is that the paper may be attributing improvements to "re
 1. Gains may come from extra trainable parameters rather than spectral structure.
 2. Gains may come from high-gate LR or fixed gate magnitude rather than complex modulation.
 3. Gains may come from favorable missing-grid composition.
-4. Gains over no-TTA may mostly replicate COSA's residual-adapter benefit, not Scheme6-B's new contribution.
+4. Gains over no-TTA may mostly replicate COSA's residual-adapter benefit, not ReSpect-TTA's new contribution.
 5. ETTm1/ETTm2 failures may indicate the residual spectrum is not a reliable predictor of future long-horizon errors under certain regimes.
 
 ### Devil's Advocate Verdict
@@ -328,7 +328,7 @@ R3 treats runtime as central; R2 treats it as secondary to novelty and ablation.
 
 **R2: Statistical Uncertainty**
 - **Problem:** Mean percentage improvements are not enough for the key claim.
-- **Requirement:** Add seed-level paired deltas, bootstrap 95% CI over conditions, and sign/Wilcoxon tests for Scheme6-B vs COSA-Spectral.
+- **Requirement:** Add seed-level paired deltas, bootstrap 95% CI over conditions, and sign/Wilcoxon tests for ReSpect-TTA vs COSA-Spectral.
 - **Acceptance criteria:** The paper can state whether the +3.07% improvement is statistically and practically stable.
 
 **R3: Missingness Audit**
@@ -339,7 +339,7 @@ R3 treats runtime as central; R2 treats it as secondary to novelty and ablation.
 **R4: Runtime and Parameter Overhead**
 - **Problem:** Online adaptation cost is not reported.
 - **Requirement:** Report trainable parameter count, mean adaptation time, throughput, and overhead versus COSA-Spectral.
-- **Acceptance criteria:** The paper can defend Scheme6-B as a practical online adapter.
+- **Acceptance criteria:** The paper can defend ReSpect-TTA as a practical online adapter.
 
 **R5: Baseline Formalization**
 - **Problem:** COSA-Spectral is the key baseline but is underspecified.
@@ -348,14 +348,14 @@ R3 treats runtime as central; R2 treats it as secondary to novelty and ablation.
 
 **R6: Related Work Expansion**
 - **Problem:** The draft omits residual/error-correction literature.
-- **Requirement:** Add a concise subsection covering residual correction/error compensation in forecasting and position Scheme6-B against it.
+- **Requirement:** Add a concise subsection covering residual correction/error compensation in forecasting and position ReSpect-TTA against it.
 - **Acceptance criteria:** Novelty claim is bounded and defensible.
 
 ## Suggested Revisions
 
 | # | Suggestion | Source | Priority | Expected Improvement |
 |---|---|---|---|---|
-| S1 | Add architecture figure contrasting COSA, COSA-Spectral, and Scheme6-B | EIC, R3 | P2 | Improves readability |
+| S1 | Add architecture figure contrasting COSA, COSA-Spectral, and ReSpect-TTA | EIC, R3 | P2 | Improves readability |
 | S2 | Add gate diagnostic figure for pred720 | R3, DA | P2 | Clarifies stability story |
 | S3 | Add table of worst/best cases by dataset and horizon | R1 | P2 | Strengthens error analysis |
 | S4 | Tighten novelty sentence in Introduction | R2 | P2 | Reduces overclaim risk |
@@ -374,7 +374,7 @@ R3 treats runtime as central; R2 treats it as secondary to novelty and ablation.
 ### Priority 2: Strengthen Statistical and Experimental Reporting
 
 - [ ] Add seed-level paired deltas and confidence intervals.
-- [ ] Add sign/Wilcoxon test for Scheme6-B vs COSA-Spectral.
+- [ ] Add sign/Wilcoxon test for ReSpect-TTA vs COSA-Spectral.
 - [ ] Add missing-run audit with reason codes.
 - [ ] Add complete-subset sensitivity analysis.
 - [ ] Add runtime and parameter-count table.
