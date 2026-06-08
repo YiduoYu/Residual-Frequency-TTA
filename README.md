@@ -17,7 +17,17 @@ Current main candidate:
 adapter_context_plus_complex_modulation_high_gate_lr
 ```
 
-Project diagrams:
+## Diagrams
+
+### ReSpect-TTA Pipeline
+
+![ReSpect-TTA spectral residual correction pipeline](assets/respect_tta_pipeline.png)
+
+### Complex Modulator
+
+![Complex modulator structure](assets/complex_modulator.png)
+
+Editable diagram sources:
 
 - `respect_tta.drawio`
 - `complex_modulator_flowchart.drawio`
