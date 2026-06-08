@@ -1,6 +1,6 @@
 kind	file	source	note
-final_table	final_tables/balanced_3models_4datasets_seed012_electricity_balanced_summary.csv	remote:Spectral-master/results/summary/balanced_3models_4datasets_seed012_electricity_balanced_summary.csv	raw balanced summary from the latest balanced-only GPU run
-comparison_table	final_tables/balanced_spectral_comparison_vs_5_26.csv	local join with result/5.26_paper8_experiment/final_tables/paper8_full_comparison_averaged.csv	Balanced results compared with baseline, simple COSA, and old Spectral
-failure_log	failure_logs/balanced_3models_4datasets_seed012_electricity_failures.tsv	remote:Spectral-master/results/summary/balanced_3models_4datasets_seed012_electricity_failures.tsv	header only; no recorded failures
-run_log	run_logs/balanced_3models_4datasets_seed012_electricity.driver.log	remote:Spectral-master/results/summary/balanced_3models_4datasets_seed012_electricity.driver.log	driver log for provenance
-
+final_table	final_tables/balanced_branch_schema6_averaged.csv	remote:balanced_branch_c20260529_schema6_20260608/collected/balanced_branch_averaged.csv	171 averaged model/dataset/horizon combinations, each with 3 seeds
+final_table	final_tables/balanced_branch_schema6_full_results.csv	remote:balanced_branch_c20260529_schema6_20260608/collected/balanced_branch_full_results.csv	513 seed-level GPU balanced results
+input_matrix	input/balanced_schema6_matrix.tsv	remote:balanced_branch_c20260529_schema6_20260608/input/balanced_schema6_matrix.tsv	run matrix used by the GPU schema6 balanced run
+run_log	run_logs/balanced_schema6_matrix_20260608.log	remote:balanced_branch_c20260529_schema6_20260608/balanced_schema6_matrix_20260608.log	driver log with 512 DONE entries and 1 SKIP entry
+failure_log	failure_logs/balanced_schema6_matrix_failures.tsv	derived from run_logs/balanced_schema6_matrix_20260608.log	header only; no FAIL or MISSING entries were found
