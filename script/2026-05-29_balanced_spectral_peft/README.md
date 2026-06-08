@@ -4,19 +4,17 @@ This folder contains the new Balanced Spectral-PEFT runner and collector.
 
 - `run_paper8_balanced_spectral.sh` uses the new `COSA_BALANCED` result family and the `SpectralBalancedCOSAAdapter`.
 - `collect_results.py` understands the balanced spectral summary fields such as window fusion weights, backend weights, spectral energy bands, and adaptation delta norm.
-- The original 5.26 paper8 runner remains in `script/5.26/` for provenance, but this folder is the entrypoint for the new balanced spectral version.
 
-Do not mix this run with the 5.26 version. When launching the experiment, use
-only the script in this folder:
+When launching the experiment from this branch, use only the balanced runner in
+this folder:
 
 ```bash
 bash ../script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 ```
 
-Do not launch any runner from `script/5.26/`, and do not redirect this run's
-outputs into the 5.26 result folders. The `script/5.26/` code and results are
-the previous Spectral experiment baseline and should be kept separate so they
-remain directly comparable with this Balanced Spectral-PEFT run.
+Write outputs under the `COSA_BALANCED` result family and the dated balanced
+result archive. This branch intentionally does not keep the old 5.26
+Spectral/paper8 runner or result package.
 
 Example dry run:
 
@@ -33,10 +31,8 @@ evaluation, run simple COSA, or collect the comparison CSV.
 
 The base checkpoints should come from the already completed training runs. Do
 not rerun the baseline stage for this preset. The Balanced Spectral-PEFT
-optimization results produced here can be compared directly against the
-previous Spectral results from the 5.26 experiment, because both use the same
-trained base-model checkpoints and the same selected model/dataset/horizon
-grid.
+optimization results produced here reuse the same trained base-model
+checkpoints and selected model/dataset/horizon grid.
 
 The run covers:
 
