@@ -1,19 +1,4 @@
-# Copyright (c) 2025-present, Royal Bank of Canada.
-# Copyright (c) 2025-present, Kim et al.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
-##########################################################################################
-# Code is originally from the TAFAS (https://arxiv.org/pdf/2501.04970.pdf) implementation
-# from https://github.com/kimanki/TAFAS by Kim et al. which is licensed under 
-# Modified MIT License (Non-Commercial with Permission).
-# You may obtain a copy of the License at
-#
-#    https://github.com/kimanki/TAFAS/blob/master/LICENSE
-#
-###########################################################################################
+"""Default configuration for the ReSpect-TTA experiment project."""
 
 import math
 from yacs.config import CfgNode as CN
@@ -94,104 +79,60 @@ _C.TTA.SOLVER.WEIGHT_DECAY = 0.0001
 _C.TTA.SOLVER.MOMENTUM = 0.9
 _C.TTA.SOLVER.NESTEROV = True
 _C.TTA.SOLVER.DAMPENING = 0.0
-_C.TTA.TAFAS = CN()
-_C.TTA.TAFAS.PAAS = True
-_C.TTA.TAFAS.PERIOD_N = 1
-_C.TTA.TAFAS.BATCH_SIZE = 64
-_C.TTA.TAFAS.STEPS = 1
-_C.TTA.TAFAS.ADJUST_PRED = True
-_C.TTA.TAFAS.CALI_MODULE = True
-_C.TTA.TAFAS.GATING_INIT = 0.01
-_C.TTA.TAFAS.HIDDEN_DIM = 128
-_C.TTA.TAFAS.GCM_VAR_WISE = True
+_C.TTA.RESPECT = CN()
+_C.TTA.RESPECT.BATCH_SIZE = 48
+_C.TTA.RESPECT.STEPS = 3
+_C.TTA.RESPECT.BUFFER_SIZE = 10
+_C.TTA.RESPECT.BUFFER_CONTEXT_SIZE = 10
+_C.TTA.RESPECT.ADAPT_FREQUENCY = 50
 
-## Efficient
-_C.TTA.PETSA = CN()
-_C.TTA.PETSA.PAAS = True
-_C.TTA.PETSA.PERIOD_N = 1
-_C.TTA.PETSA.BATCH_SIZE = 64
-_C.TTA.PETSA.STEPS = 1
-_C.TTA.PETSA.ADJUST_PRED = True
-_C.TTA.PETSA.CALI_MODULE = True
-_C.TTA.PETSA.GATING_INIT = 0.01
-_C.TTA.PETSA.HIDDEN_DIM = 128
-_C.TTA.PETSA.GCM_VAR_WISE = True
-_C.TTA.PETSA.GCM_VAR_WISE = True
-_C.TTA.PETSA.RANK = 16
-_C.TTA.PETSA.LOSS_ALPHA = 0.1
+# Online adaptation settings
+_C.TTA.RESPECT.FAST_ADAPTATION = True
+_C.TTA.RESPECT.ADAPTIVE_LR = True
+_C.TTA.RESPECT.MAX_LR = 0.005
+_C.TTA.RESPECT.MIN_LR = 0.0001
+_C.TTA.RESPECT.MOMENTUM_FACTOR = 0.9
+_C.TTA.RESPECT.CONVERGENCE_THRESHOLD = 1e-4
+_C.TTA.RESPECT.VAR_WISE_GATING = True
+_C.TTA.RESPECT.ADAPTER_LAYERS = 1
+_C.TTA.RESPECT.HIDDEN_DIM = 64
+_C.TTA.RESPECT.PER_BATCH_LR_RESET = True
 
-## Proposed
-_C.TTA.COSA = CN()
-_C.TTA.COSA.BATCH_SIZE = 25
-_C.TTA.COSA.STEPS = 20
-_C.TTA.COSA.BUFFER_SIZE = 10
-_C.TTA.COSA.BUFFER_CONTEXT_SIZE = 5
-_C.TTA.COSA.ADAPT_FREQUENCY = 50                # N 스텝마다 강제 적응
+# CSV export settings
+_C.TTA.RESPECT.SAVE_CSV = False
 
-# Fast Adaptation Optimization Settings
-_C.TTA.COSA.FAST_ADAPTATION = True              # Enable fast adaptation optimization
-_C.TTA.COSA.ADAPTIVE_LR = True                  # Enable adaptive learning rate adjustment
-_C.TTA.COSA.MAX_LR = 0.005                      # Maximum learning rate
-_C.TTA.COSA.MIN_LR = 0.0001                     # Minimum learning rate
-_C.TTA.COSA.MOMENTUM_FACTOR = 0.9               # Momentum factor for convergence acceleration
-_C.TTA.COSA.CONVERGENCE_THRESHOLD = 1e-4        # Early stopping convergence threshold
-_C.TTA.COSA.VAR_WISE_GATING = True              # Enable variable-wise gating
-_C.TTA.COSA.ADAPTER_LAYERS = 1                  # Number of FC layers in adapter (1 or 2)
-_C.TTA.COSA.HIDDEN_DIM = 64                     # Hidden dimension for 2-layer adapter
-_C.TTA.COSA.PER_BATCH_LR_RESET = True           # Reset learning rate at the start of each batch
-
-# CSV Export Settings
-_C.TTA.COSA.SAVE_CSV = False                    # Enable detailed CSV export of predictions
-_C.TTA.COSA.SAVE_PAAS_CSV = False               # Enable CSV export of PAAS batch size information
-_C.TTA.COSA.PAAS = False
-_C.TTA.COSA.PERIOD_N = 1
-_C.TTA.COSA.SPECTRAL = CN()
-_C.TTA.COSA.SPECTRAL.MODE = 'concat'     # spectral or concat
-_C.TTA.COSA.SPECTRAL.USAGE = 'context_only'  # context_only, direct, context_plus_direct
-_C.TTA.COSA.SPECTRAL.SOURCE = 'residual_profile'
-_C.TTA.COSA.SPECTRAL.REPR = 'real_imag'  # real_imag or mag_phase
-_C.TTA.COSA.SPECTRAL.K = 8
-_C.TTA.COSA.SPECTRAL.HISTORY_SIZE = 8
-_C.TTA.COSA.SPECTRAL.INCLUDE_POWER_RATIO = True
-_C.TTA.COSA.SPECTRAL.INCLUDE_RESIDUAL_STATS = True
-_C.TTA.COSA.SPECTRAL.MIN_POWER_RATIO_FOR_DIRECT = 0.20  # diagnostic only
-
-_C.TTA.COSA.SPECTRAL.USE_CONTEXT_PROJECTION = True
-_C.TTA.COSA.SPECTRAL.CONTEXT_PROJECTION_DIM = 8
-_C.TTA.COSA.SPECTRAL.MAX_CONTEXT_DIM_FOR_FULL_ADAPTER = 16
-_C.TTA.COSA.SPECTRAL.PARAM_BUDGET_MULTIPLIER = 1.25
-_C.TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION = False
-_C.TTA.COSA.SPECTRAL.CORRECTION_SOURCE = 'residual'  # prediction, residual, both, complex_modulation
-_C.TTA.COSA.SPECTRAL.GATE_MODE = 'unidirectional'  # fy_only, unidirectional, bidirectional
-_C.TTA.COSA.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION = False
-_C.TTA.COSA.SPECTRAL.USE_GLOBAL_GATE = True
-_C.TTA.COSA.SPECTRAL.GLOBAL_GATE_FEATURES = 'hs,l2,low_freq_ratio'
-_C.TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS = -6.0
-_C.TTA.COSA.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER = 1.0
-_C.TTA.COSA.SPECTRAL.GLOBAL_GATE_FLOOR = 0.0  # learned gate lower bound; 0.0 preserves the original sigmoid gate
-_C.TTA.COSA.SPECTRAL.CONSTANT_GLOBAL_GATE = -1.0  # negative disables; [0,1] fixes the global gate
-_C.TTA.COSA.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO = 1.0  # <=1.0 keeps only low normalized frequencies for complex modulation
-_C.TTA.COSA.SPECTRAL.ENABLE_REVIN_ON_SPECTRAL_PATH = False
-_C.TTA.COSA.SPECTRAL.WINDOW_TYPE = 'hann'  # none, hann, hamming
-_C.TTA.COSA.SPECTRAL.OUT_PROJ = 'diagonal'  # none, diagonal, depthwise, dense
-_C.TTA.COSA.SPECTRAL.FFT_PRECISION = 'fp32'  # fp32, bf16, fp16
-_C.TTA.COSA.SPECTRAL.FFT_LENGTH_MODE = 'exact'  # exact, pad_pow2 reserved
-_C.TTA.COSA.SPECTRAL.LOG_CSV_PATH = ''
-
-## DynaTTA: Dynamic Test-Time Adaptation
-_C.TTA.DYNATTA = CN()
-_C.TTA.DYNATTA.MSE_BUFFER_SIZE = 256              # Size of MSE buffer for z-score computation
-_C.TTA.DYNATTA.METRIC_HISTORY_SIZE = 256          # Size of metric history for normalization
-_C.TTA.DYNATTA.ALPHA_MIN = 1e-4                   # Minimum adaptation rate
-_C.TTA.DYNATTA.ALPHA_MAX = 1e-3                   # Maximum adaptation rate
-_C.TTA.DYNATTA.KAPPA = 1.0                        # Sensitivity scale for adaptation rate
-_C.TTA.DYNATTA.ETA = 0.1                          # Smoothing factor for adaptation rate
-_C.TTA.DYNATTA.EPS = 1e-6                         # Numerical stability constant
-_C.TTA.DYNATTA.WARMUP_FACTOR = 1                  # Warmup steps factor (multiplied by PRED_LEN)
-_C.TTA.DYNATTA.UPDATE_BUFFERS_INTERVAL = 1        # Interval for updating buffers
-_C.TTA.DYNATTA.UPDATE_METRICS_INTERVAL = 1        # Interval for updating metrics
-_C.TTA.DYNATTA.RTAB_SIZE = 360                    # Recent Time-series Adaptation Buffer size
-_C.TTA.DYNATTA.RDB_SIZE = 100                     # Representative Database size
+# Residual spectral correction settings
+_C.TTA.RESPECT.SPECTRAL = CN()
+_C.TTA.RESPECT.SPECTRAL.MODE = 'concat'
+_C.TTA.RESPECT.SPECTRAL.USAGE = 'context_plus_direct'
+_C.TTA.RESPECT.SPECTRAL.SOURCE = 'residual_profile'
+_C.TTA.RESPECT.SPECTRAL.REPR = 'real_imag'
+_C.TTA.RESPECT.SPECTRAL.K = 8
+_C.TTA.RESPECT.SPECTRAL.HISTORY_SIZE = 8
+_C.TTA.RESPECT.SPECTRAL.INCLUDE_POWER_RATIO = True
+_C.TTA.RESPECT.SPECTRAL.INCLUDE_RESIDUAL_STATS = True
+_C.TTA.RESPECT.SPECTRAL.MIN_POWER_RATIO_FOR_DIRECT = 0.20
+_C.TTA.RESPECT.SPECTRAL.USE_CONTEXT_PROJECTION = True
+_C.TTA.RESPECT.SPECTRAL.CONTEXT_PROJECTION_DIM = 8
+_C.TTA.RESPECT.SPECTRAL.MAX_CONTEXT_DIM_FOR_FULL_ADAPTER = 16
+_C.TTA.RESPECT.SPECTRAL.PARAM_BUDGET_MULTIPLIER = 1.25
+_C.TTA.RESPECT.SPECTRAL.ENABLE_DIRECT_CORRECTION = True
+_C.TTA.RESPECT.SPECTRAL.CORRECTION_SOURCE = 'complex_modulation'
+_C.TTA.RESPECT.SPECTRAL.GATE_MODE = 'unidirectional'
+_C.TTA.RESPECT.SPECTRAL.ENABLE_REFERENCE_CONTENT_INJECTION = False
+_C.TTA.RESPECT.SPECTRAL.USE_GLOBAL_GATE = True
+_C.TTA.RESPECT.SPECTRAL.GLOBAL_GATE_FEATURES = 'hs,l2,low_freq_ratio'
+_C.TTA.RESPECT.SPECTRAL.GLOBAL_GATE_INIT_BIAS = -2.0
+_C.TTA.RESPECT.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER = 10.0
+_C.TTA.RESPECT.SPECTRAL.GLOBAL_GATE_FLOOR = 0.0
+_C.TTA.RESPECT.SPECTRAL.CONSTANT_GLOBAL_GATE = -1.0
+_C.TTA.RESPECT.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO = 1.0
+_C.TTA.RESPECT.SPECTRAL.ENABLE_REVIN_ON_SPECTRAL_PATH = False
+_C.TTA.RESPECT.SPECTRAL.WINDOW_TYPE = 'hann'
+_C.TTA.RESPECT.SPECTRAL.OUT_PROJ = 'diagonal'
+_C.TTA.RESPECT.SPECTRAL.FFT_PRECISION = 'fp32'
+_C.TTA.RESPECT.SPECTRAL.FFT_LENGTH_MODE = 'exact'
+_C.TTA.RESPECT.SPECTRAL.LOG_CSV_PATH = ''
 
 
 _C.MODEL = CN()

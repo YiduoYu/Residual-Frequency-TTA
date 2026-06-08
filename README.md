@@ -1,11 +1,15 @@
-# COSA to Spectral Experiment Project
+# ReSpect-TTA Experiment Project
 
-## Method Overview: ReSpect-TTA
+## Method Overview
 
-The current branch focuses on ReSpect-TTA: residual-conditioned complex frequency
-modulation for online test-time adaptation. It keeps COSA's online residual
-buffer and frozen base model, but replaces the time-domain output adapter with a
-frequency-native correction operator.
+This repository focuses on **ReSpect-TTA**, a residual-conditioned complex
+frequency modulation method for online test-time adaptation in time-series
+forecasting.
+
+The base forecasting backbone remains frozen. ReSpect-TTA keeps a recent
+residual memory, converts the base prediction and residual memory into the
+frequency domain, learns a complex modulator from the residual spectrum, and
+adds a gated spectral correction back to the original prediction.
 
 Current main candidate:
 
@@ -13,103 +17,93 @@ Current main candidate:
 adapter_context_plus_complex_modulation_high_gate_lr
 ```
 
-![COSA vs ReSpect-TTA architecture comparison](script/05.29_residual_spectral_gating/figures/0604.png)
+Project diagrams:
 
-ReSpect-TTA uses the historical residual spectrum to generate a complex modulator
-for the current prediction spectrum:
+- `respect_tta.drawio`
+- `complex_modulator_flowchart.drawio`
+
+## Core Formula
 
 | Formula | Meaning |
 |---|---|
-| $Y_t^{(0)} = f_{\theta}(X_t)$ | Frozen base prediction from the pretrained backbone. |
-| $R_t = Y_t - Y_t^{(0)}$ | Residual profile / base prediction error. |
-| $F_y = \mathrm{FFT}(Y_t^{(0)})$ | Frequency representation of the current prediction. |
-| $F_r = \mathrm{FFT}(R_{buf})$ | Frequency representation of recent residual reference. |
-| $M = M_{\theta}(F_r)$ | Residual-conditioned complex modulation operator. |
-| $\Delta Y_t = \mathrm{iFFT}(M \odot F_y)$ | Frequency-native correction returned to time domain. |
-| $\hat{Y}_t = Y_t^{(0)} + g_t \odot \Delta Y_t$ | Corrected output with global gate. |
-| $\mathcal{L}_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)$ | Adaptation loss for updating only ReSpect-TTA adapter parameters. |
+| $Y_t^{(0)} = f_{\theta}(X_t)$ | Frozen backbone prediction. |
+| $R_t = Y_t - Y_t^{(0)}$ | Base prediction residual after ground truth arrives. |
+| $F_y = \mathrm{rFFT}(Y_t^{(0)})$ | Prediction spectrum. |
+| $F_r = \mathrm{rFFT}(R_{buf})$ | Recent residual spectrum. |
+| $M(F_r)$ | Residual-conditioned complex modulation operator. |
+| $\Delta Y_t = \mathrm{iFFT}(M(F_r) \odot F_y)$ | Time-domain spectral correction. |
+| $\hat{Y}_t = Y_t^{(0)} + g_t \odot \Delta Y_t$ | Final gated forecast. |
 
-Compared with COSA-Spectral, which feeds residual FFT features into a
-time-domain adapter, ReSpect-TTA directly applies a residual-conditioned complex
-operator to the forecast spectrum. For evaluation, both MSE and MAE are
-reported. The base model remains frozen; only adapter-related parameters are
-updated during test-time adaptation.
+## Key Idea
 
-The current best variant combines Spectral-COSA context features with the
-ReSpect-TTA direct complex modulation path. In the 2026-06-04 seed0 long-horizon
-check, it completed all 42 runnable `pred336/720` points and beat Spectral-COSA
-on 27/30 comparable points with average MSE improvement `+2.56%`.
+ReSpect-TTA treats the recent residual spectrum as an active correction operator.
+The residual spectrum is used to generate a complex modulator that directly
+changes the prediction spectrum before the correction is reconstructed through
+inverse FFT.
 
-## 2026-05-27 Experiment Design
-
-This repository keeps the original COSA/Spectral implementation under
-`Spectral-master/` and the course experiment orchestration scripts under
-`script/5.26/`.
-
-The current main experiment is driven by:
-
-```bash
-bash script/5.26/run_paper8_spectral.sh
-```
-
-This script runs the paper-style grid plus two additional datasets:
-
-- Datasets: `ETTh1`, `ETTh2`, `ETTm1`, `ETTm2`, `exchange_rate`, `weather`,
-  `electricity`, and `traffic`
-- Models: `DLinear`, `FreTS`, `iTransformer`, `MICN`, `OLS`, and `PatchTST`
-- Prediction horizons: `96`, `192`, `336`, and `720`
-- Window setup: look-back length `96`, label length `48`
-- Split: train/validation/test = `0.7/0.1/0.2`
-- Default seeds for this managed run: `0 1 2`
-
-The script executes these stages by default:
+Short version:
 
 ```text
-train -> baseline -> cosa -> spectral -> collect
+Y_t^(0) -> F_y
+R_buf -> F_r -> M(F_r)
+Delta Y_t = iFFT(M(F_r) odot F_y)
+Y_hat_t = Y_t^(0) + g_t odot Delta Y_t
 ```
 
-The comparison includes:
+## Main Result
 
-- No-TTA baseline
-- COSA with fixed batching
-- COSA with PAAS batching
-- Spectral-COSA using residual-profile context
+The main collected run evaluates:
 
-For the Spectral-COSA setting, the current design uses spectral information as
-context only. It builds residual-profile features, represents them with
-`real_imag`, uses history size `8`, projects the context to dimension `8`, and
-keeps direct spectral correction disabled.
-
-## Training Reliability Logic
-
-The 2026-05-27 update changes the training script to make long grid runs easier
-to manage:
-
-- Default seeds are reduced from ten seeds to `0 1 2` for a tractable managed
-  run.
-- `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is exported by default to
-  reduce CUDA memory fragmentation.
-- `CONTINUE_ON_ERROR=True` lets the grid continue after a failed train,
-  baseline, COSA, Spectral-COSA, or collection job.
-- Failures are recorded in `Spectral-master/results/summary/paper8_failures.tsv`
-  with run id, timestamp, stage, model, dataset, horizon, seed, variant, and
-  exit code.
-- Result collection allows partial outputs by default. Set
-  `COLLECT_REQUIRE_COMPLETE=True` when a strict complete-grid collection is
-  required.
-
-Useful overrides:
-
-```bash
-# Run the original ten-seed grid.
-SEEDS="0 1 2 3 4 5 6 7 8 9" bash script/5.26/run_paper8_spectral.sh
-
-# Stop immediately on the first failed job.
-CONTINUE_ON_ERROR=False bash script/5.26/run_paper8_spectral.sh
-
-# Collect only after all expected outputs are present.
-COLLECT_REQUIRE_COMPLETE=True bash script/5.26/run_paper8_spectral.sh
+```text
+adapter_context_plus_complex_modulation_high_gate_lr
 ```
 
-The original implementation README remains available at
-`Spectral-master/README.md`.
+Across 171 collected model-dataset-horizon conditions, each averaged over three
+seeds, ReSpect-TTA obtains:
+
+```text
+161/171 wins vs no-TTA baseline
++14.37% mean MSE improvement vs no-TTA baseline
+162/171 wins vs the context-only spectral reference
++3.07% mean MSE improvement vs the context-only spectral reference
+```
+
+## Experiment Story
+
+The final method was reached through the following experimental path:
+
+| Step | Test | Result |
+|---|---|---|
+| Residual-only | Directly add recent residual information | Failed; almost no improvement |
+| Complex modulation | Use `M(F_r) odot F_y` to correct the prediction spectrum | Useful signal, but unstable alone |
+| Gate diagnostics | Test correction strength policies | Gate behavior is critical |
+| Long-horizon direct-only | Test direct path on long horizons | Better than no-TTA, but not stable enough |
+| Low-pass sweep | Restrict correction to low frequencies | Did not solve the issue |
+| Context-plus-complex | Combine stable context adaptation with direct complex correction | First strong design direction |
+| Full 3-seed run | Validate the final candidate broadly | Main ReSpect-TTA result |
+| Pred720 diagnostics | Analyze long-horizon weakness | Remaining issue is gate stability |
+
+## Result Files
+
+The most important result files are:
+
+```text
+result/respect_tta/
+  respect_tta_main_results.csv
+  respect_tta_main_averaged.csv
+  respect_tta_main_improvement.csv
+```
+
+Meaning:
+
+```text
+results.csv      = collected raw run results
+averaged.csv     = seed-averaged condition results
+improvement.csv  = comparison and relative improvement table
+```
+
+## Notes
+
+The implementation code and historical experiment names are kept for
+reproducibility. Some internal paths and variant names still use legacy
+identifiers, while the presentation/report name is **ReSpect-TTA**.

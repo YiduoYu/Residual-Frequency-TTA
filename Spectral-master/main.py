@@ -1,19 +1,4 @@
-# Copyright (c) 2025-present, Royal Bank of Canada.
-# Copyright (c) 2025-present, Kim et al.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
-##########################################################################################
-# Code is originally from the TAFAS (https://arxiv.org/pdf/2501.04970.pdf) implementation
-# from https://github.com/kimanki/TAFAS by Kim et al. which is licensed under 
-# Modified MIT License (Non-Commercial with Permission).
-# You may obtain a copy of the License at
-#
-#    https://github.com/kimanki/TAFAS/blob/master/LICENSE
-#
-###########################################################################################
+"""Training, testing, and ReSpect-TTA adaptation entrypoint."""
 
 import os
 
@@ -23,12 +8,7 @@ from datasets.build import update_cfg_from_dataset
 from trainer import build_trainer
 from predictor import Predictor
 from utils.misc import set_seeds, set_devices
-from tta.tafas import build_adapter
-import tta.cosa as cosa
-import tta.cosa_spectral as cosa_spectral
-import tta.cosa_scheme6 as cosa_scheme6
-import tta.petsa as petsa
-import tta.dynatta as dynatta
+import tta.respect_tta as respect_tta
 from config import get_norm_module_cfg
 
 
@@ -70,34 +50,9 @@ def main():
             norm_module = load_best_model(get_norm_module_cfg(cfg), norm_module)
     
     if cfg.TTA.ENABLE:
-        if 'TAFAS' in cfg.RESULT_DIR:
-            # print("TAFAS")
-            adapter = build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'PETSA' in cfg.RESULT_DIR:
-            # print("PETSA")
-            adapter = petsa.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'COSA_SPECTRAL' in cfg.RESULT_DIR:
-            adapter = cosa_spectral.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'COSA_SCHEME6' in cfg.RESULT_DIR:
-            adapter = cosa_scheme6.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'SIMPLE' in cfg.RESULT_DIR:
-            # print("SIMPLE ADAPTER")
-            adapter = cosa.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
-        elif 'DYNATTA' in cfg.RESULT_DIR:
-            # print("DYNATTA ADAPTER")
-            adapter = dynatta.build_adapter(cfg, model, norm_module=norm_module)
-            adapter.adapt()
-            adapter.count_parameters()
+        adapter = respect_tta.build_adapter(cfg, model, norm_module=norm_module)
+        adapter.adapt()
+        adapter.count_parameters()
 
 
     if cfg.TEST.ENABLE:

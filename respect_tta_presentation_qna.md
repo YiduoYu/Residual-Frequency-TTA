@@ -13,8 +13,7 @@ complex modulator that directly corrects the current prediction spectrum.
 
 Chinese version:
 
-> ReSpect-TTA 不改原来的预测模型，而是用最近预测误差的频谱生成一个复数调制器，直接修正当前预测的频谱。
-
+> ReSpect-TTA 不改原来的预测模型，而是用最近预测误差的频谱生成一个复数调制器，直接修正当前预测的频谱�?
 ## 1. Motivation
 
 **Q: What problem are you solving?**
@@ -37,17 +36,17 @@ A: Full retraining is expensive and may not be practical during deployment.
 ReSpect-TTA only updates a small adapter, so it is cheaper, faster, and less
 likely to destroy the pretrained backbone behavior.
 
-## 2. Relation to COSA-Spectral
+## 2. Relation to spectral context reference
 
-**Q: What is the difference between COSA-Spectral and ReSpect-TTA?**
+**Q: What is the difference between spectral context reference and ReSpect-TTA?**
 
-A: COSA-Spectral uses the residual spectrum as context features for a
+A: spectral context reference uses the residual spectrum as context features for a
 time-domain adapter. ReSpect-TTA uses the residual spectrum to generate a
 complex operator that directly modifies the prediction spectrum.
 
 Short version:
 
-> COSA-Spectral uses spectrum as context; ReSpect-TTA uses spectrum as a correction operator.
+> spectral context reference uses spectrum as context; ReSpect-TTA uses spectrum as a correction operator.
 
 **Q: What does "operator" mean here?**
 
@@ -60,11 +59,11 @@ produce \(M(F_r)\), and \(M(F_r)\) directly acts on the prediction spectrum:
 
 So the residual spectrum changes the prediction spectrum through multiplication.
 
-**Q: Are you replacing COSA-Spectral?**
+**Q: Are you replacing spectral context reference?**
 
-A: Not exactly. The main variant keeps the useful COSA-Spectral context path and
+A: Not exactly. The main variant keeps the useful spectral context reference context path and
 adds a direct spectral correction path. So it is better described as an
-extension of COSA-Spectral.
+extension of spectral context reference.
 
 ## 3. Diagram and Formula Questions
 
@@ -229,32 +228,32 @@ component or shift a pattern in phase.
 
 **Q: What are your main baselines?**
 
-A: The main baselines are no-TTA, COSA fixed, COSA PAAS, and COSA-Spectral. The
-most important comparison is COSA-Spectral because it already uses residual FFT
+A: The main baselines are no-TTA, context adapter reference fixed, context adapter reference adaptive scheduling, and spectral context reference. The
+most important comparison is spectral context reference because it already uses residual FFT
 features as context.
 
 **Q: What is the main result?**
 
 A: On 171 collected model-dataset-horizon conditions averaged over 3 seeds,
 ReSpect-TTA wins over no-TTA on 161/171 conditions with +14.37% average MSE
-improvement. It wins over COSA-Spectral on 162/171 conditions with +3.07%
+improvement. It wins over spectral context reference on 162/171 conditions with +3.07%
 average MSE improvement.
 
-**Q: Why is the improvement over COSA-Spectral smaller than over no-TTA?**
+**Q: Why is the improvement over spectral context reference smaller than over no-TTA?**
 
-A: COSA-Spectral is already a strong baseline because it uses spectral residual
+A: spectral context reference is already a strong baseline because it uses spectral residual
 features as context. The +3.07% improvement is meaningful because it shows extra
 value beyond an already spectral-aware method.
 
 **Q: Which model benefits most?**
 
-A: MICN benefits most in the collected results. Against COSA-Spectral, MICN wins
+A: MICN benefits most in the collected results. Against spectral context reference, MICN wins
 32/32 conditions with about +4.86% mean MSE improvement.
 
 **Q: Which datasets are strongest?**
 
 A: The strongest average improvements appear on exchange_rate, weather,
-electricity, traffic, and several MICN settings. Against COSA-Spectral, all
+electricity, traffic, and several MICN settings. Against spectral context reference, all
 collected exchange_rate, weather, electricity, traffic, and ETTh1 conditions
 improve.
 
@@ -287,18 +286,18 @@ conditions. The report only claims results on the 171 comparable conditions.
 **Q: Did direct spectral correction alone work?**
 
 A: Not enough. Direct complex modulation alone improved over no-TTA in some
-settings, but it was weaker than COSA-Spectral, especially for long horizons.
+settings, but it was weaker than spectral context reference, especially for long horizons.
 
 **Q: What made the final method work?**
 
-A: The final method combines two paths: the retained Spectral-COSA context path
+A: The final method combines two paths: the retained spectral context reference context path
 and the direct complex modulation path. The context path stabilizes adaptation,
 and the direct path adds frequency-native correction.
 
 **Q: What did the gate diagnostics show?**
 
 A: Gate policy is important. A constant gate of 0.10 performed strongly on the
-horizon-720 diagnostic slice, winning 40/42 against COSA-Spectral with +3.15%
+horizon-720 diagnostic slice, winning 40/42 against spectral context reference with +3.15%
 average MSE improvement. This suggests gate stabilization is a key future target.
 
 **Q: Why not always use constant gate 0.10?**
@@ -311,7 +310,7 @@ matters, so a learned horizon-aware gate is likely better.
 
 A: The most important future ablation is separating the contribution of:
 
-- Spectral-COSA context path
+- spectral context reference context path
 - direct complex modulation path
 - learned gate policy
 - gate learning-rate multiplier
@@ -324,21 +323,21 @@ A: The most important future ablation is separating the contribution of:
 A: The core adapter is implemented in:
 
 ```text
-Spectral-master/tta/cosa_scheme6.py
+Spectral-master/tta/respect_tta.py
 ```
 
 The final presentation name is ReSpect-TTA, but the historical code file still
-uses the `scheme6` name.
+uses the `respect` name.
 
 **Q: Which class implements the spectral correction?**
 
-A: `Scheme6DirectSpectralCorrector` implements the direct spectral correction:
+A: `ReSpectDirectSpectralCorrector` implements the direct spectral correction:
 rFFT, residual spectrum, complex modulation, iFFT, and gate.
 
 **Q: Which class implements the full online adapter?**
 
-A: `Scheme6ResidualSpectralAdapter` wraps the frozen backbone, optional
-Spectral-COSA context adapter, direct spectral corrector, online adaptation
+A: `ReSpectTTAAdapter` wraps the frozen backbone, optional
+spectral context reference context adapter, direct spectral corrector, online adaptation
 loop, residual buffer update, and result logging.
 
 **Q: Where is the experiment script?**
@@ -346,7 +345,7 @@ loop, residual buffer update, and result logging.
 A: The main experiment script is:
 
 ```text
-script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh
+script/respect_tta/run_respect_tta.sh
 ```
 
 The final main variant is:
@@ -360,8 +359,8 @@ adapter_context_plus_complex_modulation_high_gate_lr
 A: The main result files are:
 
 ```text
-result/06.05_scheme6_experiment_records/spectral_master_results/summary/scheme6_full_context_plus_complex_averaged.csv
-result/06.05_scheme6_experiment_records/spectral_master_results/summary/scheme6_full_context_plus_complex_improvement.csv
+result/06.05_respect_experiment_records/spectral_master_results/summary/respect_full_context_plus_complex_averaged.csv
+result/06.05_respect_experiment_records/spectral_master_results/summary/respect_full_context_plus_complex_improvement.csv
 ```
 
 ## 9. Potential Criticism and Safe Answers
@@ -379,7 +378,7 @@ cases, mainly ETTm1/ETTm2 at horizon 720.
 **Q: What is the novelty then?**
 
 A: The novelty is using the residual spectrum to generate a complex modulation
-operator that directly corrects the prediction spectrum. COSA-Spectral uses
+operator that directly corrects the prediction spectrum. spectral context reference uses
 spectral information as context; ReSpect-TTA uses it as a correction operator.
 
 **Q: Could the improvement come only from extra parameters?**
@@ -388,7 +387,7 @@ A: That is possible and should be tested more carefully. The current evidence
 shows consistent empirical gains, but a future version should report parameter
 counts and ablations that isolate each component.
 
-**Q: Could the improvement come from the retained COSA-Spectral context path?**
+**Q: Could the improvement come from the retained spectral context reference context path?**
 
 A: Partly, yes. That is why the claim is framed as an extension rather than a
 replacement. The final method combines context and direct correction; future
@@ -407,9 +406,9 @@ should be filled in future work.
 > A lightweight online TTA adapter that uses recent residual spectra to directly
 > correct the current prediction spectrum.
 
-**Main difference from COSA-Spectral?**
+**Main difference from spectral context reference?**
 
-> COSA-Spectral uses residual spectrum as context; ReSpect-TTA uses it as a
+> spectral context reference uses residual spectrum as context; ReSpect-TTA uses it as a
 > correction operator.
 
 **Why frequency domain?**
@@ -427,7 +426,7 @@ should be filled in future work.
 
 **Main result?**
 
-> +14.37% average MSE improvement over no-TTA and +3.07% over COSA-Spectral on
+> +14.37% average MSE improvement over no-TTA and +3.07% over spectral context reference on
 > 171 collected conditions.
 
 **Main limitation?**

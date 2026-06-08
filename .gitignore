@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+
+Spectral-master/results/
+output/
+
+*.aux
+*.log
+*.out
+*.synctex.gz

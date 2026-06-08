@@ -4,14 +4,14 @@ This note explains every component in the ReSpect-TTA diagram, including what it
 
 Current presentation name: **ReSpect-TTA**.
 
-Code name in the repository: many files still use `Scheme6` / `COSA_SCHEME6` because this method was developed as the sixth experimental scheme before the final name was chosen.
+Code name in the repository: many files still use `ReSpect-TTA` / `RESPECT_TTA` because this method was developed as the sixth experimental scheme before the final name was chosen.
 
 Core code:
 
-- `Spectral-master/tta/cosa_scheme6.py`
-- Main class: `Scheme6ResidualSpectralAdapter`
-- Core correction module: `Scheme6DirectSpectralCorrector`
-- Experiment script: `script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh`
+- `Spectral-master/tta/respect_tta.py`
+- Main class: `ReSpectTTAAdapter`
+- Core correction module: `ReSpectDirectSpectralCorrector`
+- Experiment script: `script/respect_tta/run_respect_tta.sh`
 
 ## 1. One-Sentence Story
 
@@ -92,7 +92,7 @@ What it does:
 
 How it is passed:
 
-In `run_residual_spectral_gating.sh`, the script passes:
+In `run_respect_tta.sh`, the script passes:
 
 ```text
 DATA.SEQ_LEN = 96
@@ -105,8 +105,8 @@ MODEL.pred_len = pred_len
 
 Code location:
 
-- Experiment parameter passing: `script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh`
-- Forecast call: `Spectral-master/tta/cosa_scheme6.py`, inside `adapt_simple`
+- Experiment parameter passing: `script/respect_tta/run_respect_tta.sh`
+- Forecast call: `Spectral-master/tta/respect_tta.py`, inside `adapt_simple`
 
 How to say it in presentation:
 
@@ -149,7 +149,7 @@ self._unfreeze_adapter_params()
 
 Code location:
 
-- `Spectral-master/tta/cosa_scheme6.py`, `Scheme6ResidualSpectralAdapter.__init__`
+- `Spectral-master/tta/respect_tta.py`, `ReSpectTTAAdapter.__init__`
 
 How to say it:
 
@@ -183,7 +183,7 @@ Then `pred` can be adapted, while `original_pred` is preserved for residual comp
 
 Code location:
 
-- `Spectral-master/tta/cosa_scheme6.py`, `adapt_simple`
+- `Spectral-master/tta/respect_tta.py`, `adapt_simple`
 
 How to say it:
 
@@ -211,7 +211,7 @@ What it does:
 
 How it is implemented:
 
-Inside `Scheme6DirectSpectralCorrector.forward`:
+Inside `ReSpectDirectSpectralCorrector.forward`:
 
 ```text
 fy = torch.fft.rfft(y.float(), n=self.pred_len, dim=1)
@@ -280,8 +280,8 @@ Important:
 Parameters:
 
 ```text
-TTA.COSA.BUFFER_CONTEXT_SIZE = 10
-TTA.COSA.SPECTRAL.HISTORY_SIZE = 8
+TTA.RESPECT.BUFFER_CONTEXT_SIZE = 10
+TTA.RESPECT.SPECTRAL.HISTORY_SIZE = 8
 ```
 
 Difference between the two:
@@ -291,8 +291,8 @@ Difference between the two:
 
 Code location:
 
-- `Spectral-master/tta/cosa_scheme6.py`, `update_memory_buffer`
-- `Spectral-master/tta/cosa_scheme6.py`, `_reference_profile`
+- `Spectral-master/tta/respect_tta.py`, `update_memory_buffer`
+- `Spectral-master/tta/respect_tta.py`, `_reference_profile`
 
 How to say it:
 
@@ -685,8 +685,8 @@ self.update_memory_buffer(ground_truth, original_pred)
 Parameters:
 
 ```text
-TTA.COSA.STEPS = 3
-TTA.COSA.BATCH_SIZE = 48
+TTA.RESPECT.STEPS = 3
+TTA.RESPECT.BATCH_SIZE = 48
 ```
 
 Why update memory using `original_pred`:
@@ -708,7 +708,7 @@ SPECTRAL.USAGE = context_plus_direct
 
 This means there are two adapter components:
 
-1. A COSA-style context adapter.
+1. A residual-context context adapter.
 2. The direct ReSpect-TTA spectral correction module.
 
 How it works:
@@ -741,11 +741,11 @@ CONTEXT_PROJECTION_DIM = 8
 Why it is not drawn in detail:
 
 - The slide focuses on the new ReSpect-TTA contribution: direct residual-conditioned spectral correction.
-- The context adapter is inherited from COSA-Spectral and is less central to the new story.
+- The context adapter is inherited from spectral context reference and is less central to the new story.
 
 How to answer if asked:
 
-> In the full implementation, I keep the COSA-Spectral context path and add the new direct correction path after it. The slide simplifies the context path because the main novelty is that the residual spectrum directly modulates the prediction spectrum.
+> In the full implementation, I keep the spectral context reference context path and add the new direct correction path after it. The slide simplifies the context path because the main novelty is that the residual spectrum directly modulates the prediction spectrum.
 
 ## 6. Why Each Added Component Exists
 
@@ -783,26 +783,26 @@ Key parameters passed by the script:
 |---|---:|---|
 | `TTA.ENABLE` | `True` | Enable test-time adaptation |
 | `TRAIN.ENABLE` | `False` | Do not train the backbone |
-| `TTA.COSA.BATCH_SIZE` | `48` | Online adaptation batch size |
-| `TTA.COSA.STEPS` | `3` | Adapter gradient steps per batch |
-| `TTA.COSA.BUFFER_CONTEXT_SIZE` | `10` | Context memory length |
-| `TTA.COSA.SPECTRAL.USAGE` | `context_plus_direct` | Use context adapter plus direct correction |
-| `TTA.COSA.SPECTRAL.MODE` | `concat` | Concatenate mean context and spectral context |
-| `TTA.COSA.SPECTRAL.K` | `8` | Use first 8 non-DC spectral bins for context/gate statistics |
-| `TTA.COSA.SPECTRAL.HISTORY_SIZE` | `8` | Average up to 8 recent residual profiles |
-| `TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION` | `True` | Activate direct spectral correction |
-| `TTA.COSA.SPECTRAL.CORRECTION_SOURCE` | `complex_modulation` | Use residual-conditioned complex modulation |
-| `TTA.COSA.SPECTRAL.GATE_MODE` | `unidirectional` | Gate uses residual-to-prediction direction |
-| `TTA.COSA.SPECTRAL.USE_GLOBAL_GATE` | `True` | Use learned correction gate |
-| `TTA.COSA.SPECTRAL.GLOBAL_GATE_INIT_BIAS` | `-2.0` | Start with a small open gate |
-| `TTA.COSA.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER` | `10.0` | Train gate faster |
-| `TTA.COSA.SPECTRAL.GLOBAL_GATE_FLOOR` | `0.0` | No forced minimum correction |
-| `TTA.COSA.SPECTRAL.CONSTANT_GLOBAL_GATE` | `-1.0` | Disable constant gate |
-| `TTA.COSA.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO` | `1.0` | Allow all frequencies |
-| `TTA.COSA.SPECTRAL.WINDOW_TYPE` | `hann` | Window residual before FFT |
-| `TTA.COSA.SPECTRAL.OUT_PROJ` | `diagonal` | Use low-cost frequency-wise output scaling |
-| `TTA.COSA.SPECTRAL.FFT_PRECISION` | `fp32` | FFT uses float32 path |
-| `TTA.COSA.SPECTRAL.FFT_LENGTH_MODE` | `exact` | FFT length equals prediction length |
+| `TTA.RESPECT.BATCH_SIZE` | `48` | Online adaptation batch size |
+| `TTA.RESPECT.STEPS` | `3` | Adapter gradient steps per batch |
+| `TTA.RESPECT.BUFFER_CONTEXT_SIZE` | `10` | Context memory length |
+| `TTA.RESPECT.SPECTRAL.USAGE` | `context_plus_direct` | Use context adapter plus direct correction |
+| `TTA.RESPECT.SPECTRAL.MODE` | `concat` | Concatenate mean context and spectral context |
+| `TTA.RESPECT.SPECTRAL.K` | `8` | Use first 8 non-DC spectral bins for context/gate statistics |
+| `TTA.RESPECT.SPECTRAL.HISTORY_SIZE` | `8` | Average up to 8 recent residual profiles |
+| `TTA.RESPECT.SPECTRAL.ENABLE_DIRECT_CORRECTION` | `True` | Activate direct spectral correction |
+| `TTA.RESPECT.SPECTRAL.CORRECTION_SOURCE` | `complex_modulation` | Use residual-conditioned complex modulation |
+| `TTA.RESPECT.SPECTRAL.GATE_MODE` | `unidirectional` | Gate uses residual-to-prediction direction |
+| `TTA.RESPECT.SPECTRAL.USE_GLOBAL_GATE` | `True` | Use learned correction gate |
+| `TTA.RESPECT.SPECTRAL.GLOBAL_GATE_INIT_BIAS` | `-2.0` | Start with a small open gate |
+| `TTA.RESPECT.SPECTRAL.GLOBAL_GATE_LR_MULTIPLIER` | `10.0` | Train gate faster |
+| `TTA.RESPECT.SPECTRAL.GLOBAL_GATE_FLOOR` | `0.0` | No forced minimum correction |
+| `TTA.RESPECT.SPECTRAL.CONSTANT_GLOBAL_GATE` | `-1.0` | Disable constant gate |
+| `TTA.RESPECT.SPECTRAL.COMPLEX_MOD_FREQ_CUTOFF_RATIO` | `1.0` | Allow all frequencies |
+| `TTA.RESPECT.SPECTRAL.WINDOW_TYPE` | `hann` | Window residual before FFT |
+| `TTA.RESPECT.SPECTRAL.OUT_PROJ` | `diagonal` | Use low-cost frequency-wise output scaling |
+| `TTA.RESPECT.SPECTRAL.FFT_PRECISION` | `fp32` | FFT uses float32 path |
+| `TTA.RESPECT.SPECTRAL.FFT_LENGTH_MODE` | `exact` | FFT length equals prediction length |
 
 Datasets and models:
 
@@ -841,15 +841,15 @@ Then:
 | `g_t` | `[B, V]` | Correction gate |
 | `Y_hat_t` | `[B, L, V]` | Final forecast |
 
-## 9. Why This Is Different From COSA-Spectral
+## 9. Why This Is Different From spectral context reference
 
 Short version:
 
-> COSA-Spectral uses residual spectrum as context; ReSpect-TTA uses it as a direct correction operator on the prediction spectrum.
+> spectral context reference uses residual spectrum as context; ReSpect-TTA uses it as a direct correction operator on the prediction spectrum.
 
 More complete version:
 
-- COSA-Spectral builds spectral context features from residual history and feeds them into an output adapter.
+- spectral context reference builds spectral context features from residual history and feeds them into an output adapter.
 - ReSpect-TTA still can keep that context path, but adds a direct spectral operation:
 
 ```text
@@ -963,18 +963,18 @@ Final output is Y_t^(0) + gated correction.
 | Concept | File / function |
 |---|---|
 | Main dispatch to ReSpect-TTA adapter | `Spectral-master/main.py` |
-| Build adapter when `RESULT_DIR` contains `COSA_SCHEME6` | `Spectral-master/main.py` |
-| Main adapter class | `Spectral-master/tta/cosa_scheme6.py`, `Scheme6ResidualSpectralAdapter` |
-| Direct spectral correction module | `Spectral-master/tta/cosa_scheme6.py`, `Scheme6DirectSpectralCorrector` |
-| Residual memory update | `Spectral-master/tta/cosa_scheme6.py`, `update_memory_buffer` |
-| Build residual reference profile | `Spectral-master/tta/cosa_scheme6.py`, `_reference_profile` |
-| Prediction and residual FFT | `Spectral-master/tta/cosa_scheme6.py`, `forward` |
-| Complex modulator | `Spectral-master/tta/cosa_scheme6.py`, `_complex_modulation` |
-| Gate features | `Spectral-master/tta/cosa_scheme6.py`, `_global_gate_features` |
-| Final formula | `Spectral-master/tta/cosa_scheme6.py`, `forward` |
-| Online adapter training | `Spectral-master/tta/cosa_scheme6.py`, `adapt_simple` |
-| COSA-style spectral context | `Spectral-master/tta/cosa_spectral.py`, `SpectralContextBuilder` |
-| Experiment parameters | `script/05.29_residual_spectral_gating/run_residual_spectral_gating.sh` |
+| Build adapter when `RESULT_DIR` contains `RESPECT_TTA` | `Spectral-master/main.py` |
+| Main adapter class | `Spectral-master/tta/respect_tta.py`, `ReSpectTTAAdapter` |
+| Direct spectral correction module | `Spectral-master/tta/respect_tta.py`, `ReSpectDirectSpectralCorrector` |
+| Residual memory update | `Spectral-master/tta/respect_tta.py`, `update_memory_buffer` |
+| Build residual reference profile | `Spectral-master/tta/respect_tta.py`, `_reference_profile` |
+| Prediction and residual FFT | `Spectral-master/tta/respect_tta.py`, `forward` |
+| Complex modulator | `Spectral-master/tta/respect_tta.py`, `_complex_modulation` |
+| Gate features | `Spectral-master/tta/respect_tta.py`, `_global_gate_features` |
+| Final formula | `Spectral-master/tta/respect_tta.py`, `forward` |
+| Online adapter training | `Spectral-master/tta/respect_tta.py`, `adapt_simple` |
+| residual-context spectral context | `Spectral-master/tta/residual_spectral_context.py`, `SpectralContextBuilder` |
+| Experiment parameters | `script/respect_tta/run_respect_tta.sh` |
 
 ## 15. Things Not to Overclaim
 
@@ -983,7 +983,7 @@ Do not say:
 - This is a completely new forecasting backbone.
 - This always improves every dataset and horizon.
 - This uses the current ground truth before prediction.
-- This replaces COSA-Spectral completely.
+- This replaces spectral context reference completely.
 
 Better to say:
 
@@ -995,7 +995,7 @@ Better to say:
 
 ## 16. Clean Answer If Asked "What Did You Add?"
 
-> Starting from the spectral/COSA baseline, I added a direct residual-conditioned spectral correction path. It stores recent residuals, transforms them with rFFT, uses the residual spectrum to generate a complex modulator, applies that modulator to the prediction spectrum, converts the result back with iFFT, and adds it to the base forecast through a learned gate.
+> Starting from the spectral/context adapter reference baseline, I added a direct residual-conditioned spectral correction path. It stores recent residuals, transforms them with rFFT, uses the residual spectrum to generate a complex modulator, applies that modulator to the prediction spectrum, converts the result back with iFFT, and adds it to the base forecast through a learned gate.
 
 ## 17. Clean Answer If Asked "Why Is This Reasonable?"
 

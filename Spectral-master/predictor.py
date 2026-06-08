@@ -138,7 +138,7 @@ class Predictor:
                 
  
  
-                batch_size = self.cfg.TTA.TAFAS.BATCH_SIZE
+                batch_size = self.cfg.TTA.RESPECT.BATCH_SIZE
                 period = batch_size - 1
                 batch_end = batch_start + batch_size
 

@@ -1,4 +1,8 @@
-bash simple_batch.sh > log/SIMPLE.log 2>&1
-bash tafas.sh > log/TAFAS.log 2>&1
-bash petsa.sh > log/PETSA.log 2>&1
-bash dynatta.sh > log/DYNATTA.log 2>&1
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+bash "${PROJECT_ROOT}/script/respect_tta/run_respect_tta.sh"
