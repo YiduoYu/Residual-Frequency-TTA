@@ -79,8 +79,6 @@ Available exact result paths:
 
 | Variant | Path |
 | --- | --- |
-| old Spectral reference table | `result/5.26_paper8_experiment/final_tables/paper8_full_comparison_averaged.csv` |
-| default/no_lora early ablation summaries | `result/2026-06-05_balanced_ablation_diagnosis/` |
 | legacy_raw full19 | `/home/normal/3830_FinalProject_COSA_latest_plan2_1/Spectral-master/results/summary/COSA_BALANCED/balanced_spectral_peft_legacy_raw_real_imag_win3_softmax_gate_frozen_encoder_k8_cond19_backendsfilm_ia3_adapter_lora_off/` |
 | legacy_raw full19 adapter_only | `/home/normal/3830_FinalProject_COSA_latest_plan2_1/Spectral-master/results/summary/COSA_BALANCED/balanced_spectral_peft_legacy_raw_real_imag_win3_softmax_gate_frozen_encoder_k8_cond19_backendsadapter_lora_off/` |
 | SRDC alpha=0.25 keepDC | `/home/normal/3830_FinalProject_COSA_latest_plan2_1/Spectral-master/results/summary/COSA_BALANCED/balanced_spectral_peft_multi_window_real_imag_win3_softmax_gate_frozen_encoder_k8_cond8_backendssrdc_lora_on_srdc_alpha0.25_k8_keepdcTrue_centerFalse_maxdelta0.10/` |
