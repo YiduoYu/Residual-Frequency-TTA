@@ -1,95 +1,144 @@
-# COSA to Spectral Experiment Project
+# Balanced Spectral-PEFT Branch
 
-## Method Overview: Balanced Spectral-PEFT COSA
+Branch: `c/2026-05-29-balanced-spectral-peft`
 
-Balanced Spectral-PEFT COSA extends COSA by using a multi-window residual-spectrum encoder to condition lightweight output-space PEFT backends.
+This branch contains the Balanced Spectral-PEFT experiment family for
+time-series test-time adaptation. It keeps the base forecasting models frozen
+and learns a lightweight output-space correction module during adaptation.
 
-![Architecture of Spectral COSA](architecture_of_spectral.drawio.png)
+The method is separate from both the old Spectral/COSA path and the later Direct
+Spectral Adapter (DSA) branch.
 
-| Formula | Meaning |
-|---|---|
-| $Y_t^{(0)} = f_{\theta}(X_t)$ | Frozen base prediction from the pretrained backbone. |
-| $R_t = Y_t - Y_t^{(0)}$ | Residual profile / base prediction error. |
-| $S_k=\mathrm{rFFT}(w_k\odot R_t)$ | Multi-window residual-spectrum encoding. |
-| $s=\mathrm{Fuse}(\mathrm{Pool}(S_1),\ldots,\mathrm{Pool}(S_K))$ | Unified spectral condition vector. |
-| $H_m=\mathrm{Backend}_m(Y_t^{(0)},s)$ | FiLM, IA3, adapter, and LoRA-style lightweight PEFT outputs. |
-| $\rho_m=\mathrm{softmax}(g(s))$ | Backend mixture weights. |
-| $\hat{Y}_t=Y_t^{(0)}+\sum_m\rho_m(H_m-Y_t^{(0)})$ | Residual gated mixture correction. |
-| $\mathcal{L}_{adapt} = \mathrm{MSE}(\hat{Y}_t, Y_t)$ | Adaptation loss for updating the adapter. |
+## What This Branch Implements
 
-For evaluation, both MSE and MAE are reported. The base model remains frozen; only adapter-related parameters are updated during test-time adaptation.
+Balanced Spectral-PEFT builds a spectral condition vector from recent residuals
+and uses that vector to mix several lightweight PEFT-style output backends.
 
-## 2026-05-29 Balanced Spectral-PEFT Experiment Design
+At a high level:
 
-The current Balanced Spectral-PEFT implementation lives under `Spectral-master/`.
-The dated experiment entrypoint is kept under
-`script/2026-05-29_balanced_spectral_peft/` to separate the new version from
-older paper8 orchestration files.
+1. The frozen forecasting backbone produces a base prediction
+   `Y0 = f_theta(X)`.
+2. The adapter records residual profiles `R = Y - Y0` from adaptation batches.
+3. `MultiWindowSpectralEncoder` applies Hann, Hamming, and rectangular windows,
+   runs `rFFT`, pools low/mid/high frequency bands, and fuses the windows into a
+   condition vector.
+4. `SpectralTuningBackend` produces FiLM, IA3, adapter, and LoRA-style
+   candidate corrections.
+5. `SpectralBalancedCOSAAdapter` combines backend outputs with a learned
+   softmax gate and applies the residual-style output correction.
 
-The current main experiment is driven by:
+Only adapter-side parameters are updated during test-time adaptation. The base
+forecasting model is not retrained by the balanced-only runs.
+
+Important boundary: this branch does not implement direct inverse-FFT residual
+shape correction. Its spectral signal is used as conditioning for output-space
+PEFT backends.
+
+## Key Files
+
+- `Spectral-master/tta/spectral_balanced.py`
+  - Balanced Spectral-PEFT implementation.
+  - Defines `MultiWindowSpectralEncoder`, `SpectralFusion`,
+    `SpectralTuningBackend`, and `SpectralBalancedCOSAAdapter`.
+- `Spectral-master/config.py`
+  - Balanced config surface under `TTA.COSA.SPECTRAL.*` and
+    `TTA.COSA.BALANCED.*`.
+- `Spectral-master/main.py`
+  - Routes to the balanced adapter when `TTA.COSA.BALANCED.ENABLED` is true or
+    the result directory uses `COSA_BALANCED`.
+- `Spectral-master/tests/test_spectral_balanced.py`
+  - Focused tests for balanced encoder/backend behavior.
+- `script/2026-05-29_balanced_spectral_peft/`
+  - Dated runner, collector, and run instructions for this experiment family.
+- `result/2026-05-29_balanced_spectral_peft/`
+  - GPU schema6 balanced result archive.
+- `result/2026-06-06_balanced_ablation_diagnosis/`
+  - Diagnosis of why the balanced branch underperformed stronger direct
+    spectral references.
+
+## Current Result Archive
+
+The current archived balanced result package is:
+
+```text
+result/2026-05-29_balanced_spectral_peft/
+```
+
+It contains the GPU schema6 run collected on 2026-06-08:
+
+- `final_tables/balanced_branch_schema6_averaged.csv`
+  - 171 model/dataset/horizon combinations averaged over 3 seeds.
+- `final_tables/balanced_branch_schema6_full_results.csv`
+  - 513 seed-level balanced results.
+- `input/balanced_schema6_matrix.tsv`
+  - The run matrix.
+- `run_logs/balanced_schema6_matrix_20260608.log`
+  - Driver log with 512 completed jobs and 1 skipped pre-existing job.
+
+Headline mean over the 171 averaged combinations:
+
+| Metric | Value |
+| --- | ---: |
+| Test MSE | 0.316349 |
+| Test MAE | 0.360346 |
+
+## How To Run
+
+Use the dated balanced runner:
 
 ```bash
 bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 ```
 
-This script runs the paper-style grid plus two additional datasets:
-
-- Datasets: `ETTh1`, `ETTh2`, `ETTm1`, `ETTm2`, `exchange_rate`, `weather`,
-  `electricity`, and `traffic`
-- Models: `DLinear`, `FreTS`, `iTransformer`, `MICN`, `OLS`, and `PatchTST`
-- Prediction horizons: `96`, `192`, `336`, and `720`
-- Window setup: look-back length `96`, label length `48`
-- Split: train/validation/test = `0.7/0.1/0.2`
-- Default seeds for this managed run: `0 1 2`
-
-The script executes these stages by default:
-
-```text
-train -> baseline -> cosa -> balanced -> collect
-```
-
-The comparison includes:
-
-- No-TTA baseline
-- COSA with fixed batching
-- COSA with PAAS batching
-- Balanced Spectral-PEFT COSA using multi-window FFT conditioning and gated PEFT backends
-
-For the Balanced setting, the default spectral encoder uses Hann, Hamming, and
-rectangular windows, `real_imag` spectral features, low/mid/high band pooling,
-softmax-gate window fusion, condition dimension `8`, and FiLM/IA3/adapter/LoRA
-backends with residual mixture fusion.
-
-## Training Reliability Logic
-
-The 2026-05-27 update changes the training script to make long grid runs easier
-to manage:
-
-- Default seeds are reduced from ten seeds to `0 1 2` for a tractable managed
-  run.
-- `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is exported by default to
-  reduce CUDA memory fragmentation.
-- `CONTINUE_ON_ERROR=True` lets the grid continue after a failed train,
-  baseline, COSA, Balanced Spectral-PEFT, or collection job.
-- Failures are recorded in `Spectral-master/results/summary/paper8_failures.tsv`
-  with run id, timestamp, stage, model, dataset, horizon, seed, variant, and
-  exit code.
-- Result collection allows partial outputs by default. Set
-  `COLLECT_REQUIRE_COMPLETE=True` when a strict complete-grid collection is
-  required.
-
-Useful overrides:
+For a small dry run:
 
 ```bash
-# Run the original ten-seed grid.
-SEEDS="0 1 2 3 4 5 6 7 8 9" bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
-
-# Stop immediately on the first failed job.
-CONTINUE_ON_ERROR=False bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
-
-# Collect only after all expected outputs are present.
-COLLECT_REQUIRE_COMPLETE=True bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
+DRY_RUN=True \
+STAGES=balanced \
+MODELS=DLinear \
+DATASETS=ETTh1 \
+PRED_LENS=96 \
+SEEDS=0 \
+bash script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
 ```
 
-The original implementation README remains available at
-`Spectral-master/README.md`.
+For the managed GPU run, reuse existing checkpoints and run the balanced stage
+only:
+
+```bash
+SEEDS="0 1 2" \
+STAGES=balanced \
+MODELS="DLinear iTransformer FreTS" \
+DATASETS="ETTh1 ETTm1 weather electricity" \
+PRED_LENS="96 192 336 720" \
+CONTINUE_ON_ERROR=True \
+PYTHON=/home/normal/miniconda3/envs/cosa/bin/python \
+bash ../script/2026-05-29_balanced_spectral_peft/run_paper8_balanced_spectral.sh
+```
+
+The remote GPU workspace used by the archived runs was:
+
+```text
+/home/normal/3830_FinalProject_COSA_latest_plan2_1/
+```
+
+## Artifact Policy
+
+Datasets, checkpoints, and raw GPU result trees stay local-only. Do not commit:
+
+- `data/`
+- `checkpoints/`
+- `results/`
+- `Spectral-master/data/`
+- `Spectral-master/checkpoints/`
+- `Spectral-master/results/`
+- any `checkpoint_best.pth`
+
+Only curated result packages under `result/` should be committed.
+
+## Relationship To Other Branches
+
+- Balanced Spectral-PEFT: this branch.
+- Direct Spectral Adapter: `c/2026-06-06-direct-spectral-adapter`.
+- The DSA branch removes the balanced multi-backend PEFT mixture and uses a
+  simpler direct residual-spectrum context adapter.
