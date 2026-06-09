@@ -44,6 +44,31 @@ Current default setting:
 - power ratio enabled
 - mean-context diagnostic disabled
 
+## Architecture Diagram
+
+![Direct Spectral Adapter architecture](docs/dsa_direct_spectral_adapter_architecture.png)
+
+The diagram shows the DSA adaptation loop used by this branch.
+
+The current TTA batch provides an input window `x_t` and target window `Y_t`.
+The frozen base model predicts `Y_t^(0)`. After each adaptation batch, DSA
+stores the residual profile `R_t = mean_B(Y_t - Y_t^(0))`, where `mean_B`
+summarizes the batch-level residual pattern. The default history buffer keeps
+the latest four profiles, matching `HISTORY_SIZE=4`.
+
+`DirectSpectralContextBuilder` turns the history buffer into spectral context:
+it averages the recent residual profiles, centers them, applies `rFFT`, keeps
+the first non-DC real and imaginary frequency features, and appends residual
+statistics such as power ratio, residual mean, and residual scale. The raw
+spectral context is projected to the adapter context vector `C_t`.
+
+`DirectSpectralCorrection` concatenates the base prediction `Y_t^(0)` with
+`C_t`, uses a small linear output adapter to produce the correction `H_t`, and
+applies a learned `tanh` gate before adding the correction back to the base
+prediction. The adaptation objective is MSE between the corrected output and the
+target window. This is why DSA is a direct output-space residual adapter, not a
+balanced multi-backend PEFT router.
+
 ## Key Files
 
 - `Spectral-master/tta/direct_spectral.py`
