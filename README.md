@@ -34,6 +34,28 @@ Important boundary: this branch does not implement direct inverse-FFT residual
 shape correction. Its spectral signal is used as conditioning for output-space
 PEFT backends.
 
+## Architecture Diagram
+
+![Balanced Spectral-PEFT architecture](figures/balanced_spectral_peft_architecture.png)
+
+The diagram summarizes the balanced adaptation path implemented in
+`Spectral-master/tta/spectral_balanced.py`.
+
+Recent residual history is the short buffer of residual profiles collected from
+adaptation batches after the frozen forecasting backbone has produced its base
+prediction. The encoder builds several spectral views of that residual history,
+runs `rFFT`, and pools low-, mid-, and high-frequency bands into compact
+features. In the current implementation, the multi-window views are Hann,
+Hamming, and rectangular windows over the residual history; the short / medium /
+long labels in the figure should be read as the conceptual multi-window
+residual views rather than three separately configured history lengths.
+
+`SpectralFusion` combines the window-level spectral features into one condition
+vector. `SpectralTuningBackend` then uses that condition vector to produce and
+mix PEFT-style output corrections: FiLM, IA3, adapter, and LoRA-style branches.
+The learned backend mixture modulates the prediction in output space while the
+base forecasting model remains frozen during test-time adaptation.
+
 ## Key Files
 
 - `Spectral-master/tta/spectral_balanced.py`
