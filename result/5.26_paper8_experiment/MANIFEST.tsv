@@ -1,7 +1,0 @@
-kind	file	source_local_path	note
-final_table	final_tables/paper8_full_comparison.csv	Spectral-master/results/summary/paper8_full_comparison.csv	full per-seed comparison table from the 5.26 paper8 workflow
-final_table	final_tables/paper8_full_comparison_averaged.csv	Spectral-master/results/summary/paper8_full_comparison_averaged.csv	averaged comparison table for reporting
-failure_log	failure_logs/paper8_8datasets_20260527_020659_failures.tsv	Spectral-master/results/summary/paper8_8datasets_20260527_020659_failures.tsv	main run failure records
-failure_log	failure_logs/paper8_resume_after_reboot_20260528_120157_failures.tsv	Spectral-master/results/summary/paper8_resume_after_reboot_20260528_120157_failures.tsv	resume-after-reboot failure records
-run_log	run_logs/paper8_8datasets_20260527_020659.log	run_logs/paper8_8datasets_20260527_020659.log	main run log
-run_log	run_logs/paper8_resume_after_reboot_20260528_120157.log	run_logs/paper8_resume_after_reboot_20260528_120157.log	resume-after-reboot run log

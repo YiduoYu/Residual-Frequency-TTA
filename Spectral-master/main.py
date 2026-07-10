@@ -25,7 +25,7 @@ from predictor import Predictor
 from utils.misc import set_seeds, set_devices
 from tta.tafas import build_adapter
 import tta.cosa as cosa
-import tta.cosa_spectral as cosa_spectral
+import tta.spectral_balanced as spectral_balanced
 import tta.petsa as petsa
 import tta.dynatta as dynatta
 from config import get_norm_module_cfg
@@ -79,8 +79,12 @@ def main():
             adapter = petsa.build_adapter(cfg, model, norm_module=norm_module)
             adapter.adapt()
             adapter.count_parameters()
-        elif 'COSA_SPECTRAL' in cfg.RESULT_DIR:
-            adapter = cosa_spectral.build_adapter(cfg, model, norm_module=norm_module)
+        elif (
+            getattr(cfg.TTA.COSA.BALANCED, "ENABLED", False)
+            or 'COSA_BALANCED' in cfg.RESULT_DIR
+            or 'SPECTRAL_BALANCED' in cfg.RESULT_DIR
+        ):
+            adapter = spectral_balanced.build_adapter(cfg, model, norm_module=norm_module)
             adapter.adapt()
             adapter.count_parameters()
         elif 'SIMPLE' in cfg.RESULT_DIR:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect baseline/COSA/COSA_SPECTRAL results into a flat CSV table."""
+"""Collect baseline/COSA/COSA_BALANCED results into a flat CSV table."""
 
 from __future__ import annotations
 
@@ -51,9 +51,10 @@ def infer_fields(path: Path, root: Path) -> dict[str, str]:
         "log_path": str(path),
     }
 
-    if "COSA_SPECTRAL" in parts:
-        idx = parts.index("COSA_SPECTRAL")
-        fields["family"] = "COSA_SPECTRAL"
+    balanced_part = "COSA_BALANCED" if "COSA_BALANCED" in parts else "SPECTRAL_BALANCED"
+    if balanced_part in parts:
+        idx = parts.index(balanced_part)
+        fields["family"] = "COSA_BALANCED"
         fields["variant"] = parts[idx + 1] if len(parts) > idx + 1 else ""
         fields["model"] = parts[idx + 2] if len(parts) > idx + 2 else ""
         fields["dataset"] = parts[idx + 3] if len(parts) > idx + 3 else ""
@@ -148,6 +149,12 @@ def get_nested(data: dict, *keys):
     return current
 
 
+def json_or_empty(value):
+    if value == "" or value is None:
+        return ""
+    return json.dumps(value)
+
+
 def collect_json_logs(root: Path) -> list[dict]:
     rows = []
     log_paths = sorted(set(root.rglob("*.log")) | set(root.rglob("*.txt")))
@@ -160,6 +167,10 @@ def collect_json_logs(root: Path) -> list[dict]:
         row = infer_fields(log_path, root)
         final = result.get("final_results", {})
         spectral = result.get("spectral_statistics", {})
+        balanced = result.get("balanced_statistics", {})
+        balanced_backends = balanced.get("backends", [])
+        if isinstance(balanced_backends, list):
+            balanced_backends = ",".join(balanced_backends)
         overall = result.get("time_statistics", {}).get("overall_stats", {})
         row.update({
             "adapter": result.get("model", ""),
@@ -187,6 +198,16 @@ def collect_json_logs(root: Path) -> list[dict]:
                 "context_projection_params",
                 get_nested(result, "parameters", "context_projection_params"),
             ),
+            "spectral_fusion": spectral.get("spectral_fusion", ""),
+            "num_windows": spectral.get("num_windows", ""),
+            "window_fusion_weights_mean": json_or_empty(spectral.get("window_fusion_weights_mean", "")),
+            "spectral_energy_low": spectral.get("spectral_energy_low", ""),
+            "spectral_energy_mid": spectral.get("spectral_energy_mid", ""),
+            "spectral_energy_high": spectral.get("spectral_energy_high", ""),
+            "balanced_backends": balanced_backends,
+            "backend_weights_mean": json_or_empty(balanced.get("backend_weights_mean", "")),
+            "mixture_mode": balanced.get("mixture_mode", ""),
+            "adaptation_delta_norm_mean": balanced.get("adaptation_delta_norm_mean", ""),
         })
         rows.append(row)
     return rows
@@ -228,6 +249,16 @@ def collect_baselines(baseline_root: Path | None) -> list[dict]:
             "context_budget_exceeded": "",
             "full_adapter_context_limit_exceeded": "",
             "context_projection_params": "",
+            "spectral_fusion": "",
+            "num_windows": "",
+            "window_fusion_weights_mean": "",
+            "spectral_energy_low": "",
+            "spectral_energy_mid": "",
+            "spectral_energy_high": "",
+            "balanced_backends": "",
+            "backend_weights_mean": "",
+            "mixture_mode": "",
+            "adaptation_delta_norm_mean": "",
         })
         rows.append(row)
     return rows
@@ -293,8 +324,8 @@ def family_for_variant(variant: str) -> str:
         return "BASELINE"
     if variant.startswith("cosa_"):
         return "SIMPLE"
-    if variant.startswith("spectral_"):
-        return "COSA_SPECTRAL"
+    if variant.startswith("balanced_") or variant.startswith("spectral_balanced"):
+        return "COSA_BALANCED"
     return ""
 
 
@@ -406,6 +437,16 @@ def main() -> None:
         "context_budget_exceeded",
         "full_adapter_context_limit_exceeded",
         "context_projection_params",
+        "spectral_fusion",
+        "num_windows",
+        "window_fusion_weights_mean",
+        "spectral_energy_low",
+        "spectral_energy_mid",
+        "spectral_energy_high",
+        "balanced_backends",
+        "backend_weights_mean",
+        "mixture_mode",
+        "adaptation_delta_norm_mean",
         "log_path",
     ]
     with output.open("w", newline="", encoding="utf-8") as handle:

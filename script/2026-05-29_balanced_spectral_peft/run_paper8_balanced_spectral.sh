@@ -7,7 +7,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SPECTRAL_ROOT="${PROJECT_ROOT}/Spectral-master"
 cd "${SPECTRAL_ROOT}"
 
-# Paper grid plus two extra datasets:
+# Balanced Spectral-PEFT paper grid plus two extra datasets:
 # W=96, L in {96,192,336,720}, train:val:test=7:1:2, K=10, S=3.
 PYTHON=${PYTHON:-python}
 SEEDS=${SEEDS:-${SEED:-"0 1 2"}}
@@ -21,7 +21,7 @@ MODELS=${MODELS:-"DLinear FreTS iTransformer MICN OLS PatchTST"}
 DATASETS=${DATASETS:-"${PAPER_DATASETS} ${EXTRA_DATASETS}"}
 PRED_LENS=${PRED_LENS:-"96 192 336 720"}
 
-STAGES=${STAGES:-"train baseline cosa spectral collect"}
+STAGES=${STAGES:-"train baseline cosa balanced collect"}
 COSA_BATCHING=${COSA_BATCHING:-"fixed paas"}
 DRY_RUN=${DRY_RUN:-False}
 SKIP_EXISTING=${SKIP_EXISTING:-False}
@@ -46,21 +46,27 @@ MIN_LR=${MIN_LR:-0.0001}
 WEIGHT_DECAY=${WEIGHT_DECAY:-0.0001}
 CONVERGENCE_THRESHOLD=${CONVERGENCE_THRESHOLD:-1e-6}
 
-SPECTRAL_MODE=${SPECTRAL_MODE:-concat}
 SPECTRAL_PAAS=${SPECTRAL_PAAS:-False}
-SPECTRAL_USAGE=${SPECTRAL_USAGE:-context_only}
-SPECTRAL_SOURCE=${SPECTRAL_SOURCE:-residual_profile}
-SPECTRAL_REPR=${SPECTRAL_REPR:-real_imag}
 SPECTRAL_K=${SPECTRAL_K:-8}
 SPECTRAL_HISTORY_SIZE=${SPECTRAL_HISTORY_SIZE:-8}
-SPECTRAL_INCLUDE_POWER_RATIO=${SPECTRAL_INCLUDE_POWER_RATIO:-True}
-SPECTRAL_INCLUDE_RESIDUAL_STATS=${SPECTRAL_INCLUDE_RESIDUAL_STATS:-True}
-SPECTRAL_MIN_POWER_RATIO_FOR_DIRECT=${SPECTRAL_MIN_POWER_RATIO_FOR_DIRECT:-0.20}
-USE_CONTEXT_PROJECTION=${USE_CONTEXT_PROJECTION:-True}
-CONTEXT_PROJECTION_DIM=${CONTEXT_PROJECTION_DIM:-8}
-MAX_CONTEXT_DIM_FOR_FULL_ADAPTER=${MAX_CONTEXT_DIM_FOR_FULL_ADAPTER:-16}
-PARAM_BUDGET_MULTIPLIER=${PARAM_BUDGET_MULTIPLIER:-1.25}
-ENABLE_DIRECT_CORRECTION=${ENABLE_DIRECT_CORRECTION:-False}
+SPECTRAL_ENCODER_TYPE=${SPECTRAL_ENCODER_TYPE:-multi_window}
+SPECTRAL_NUM_WINDOWS=${SPECTRAL_NUM_WINDOWS:-3}
+SPECTRAL_WINDOW_TYPES=${SPECTRAL_WINDOW_TYPES:-hann,hamming,rect}
+SPECTRAL_FEATURE_TYPE=${SPECTRAL_FEATURE_TYPE:-real_imag}
+SPECTRAL_POOLING=${SPECTRAL_POOLING:-low_mid_high}
+SPECTRAL_FUSION=${SPECTRAL_FUSION:-softmax_gate}
+SPECTRAL_CONDITION_DIM=${SPECTRAL_CONDITION_DIM:-8}
+BALANCED_BACKENDS=${BALANCED_BACKENDS:-film,ia3,adapter,lora}
+BALANCED_BACKEND_GATE=${BALANCED_BACKEND_GATE:-softmax}
+BALANCED_MIXTURE_MODE=${BALANCED_MIXTURE_MODE:-residual}
+BALANCED_FILM_EPS=${BALANCED_FILM_EPS:-0.1}
+BALANCED_IA3_EPS=${BALANCED_IA3_EPS:-0.1}
+BALANCED_ADAPTER_CONDITIONING=${BALANCED_ADAPTER_CONDITIONING:-residual_gate}
+BALANCED_LORA_ENABLED=${BALANCED_LORA_ENABLED:-True}
+BALANCED_LORA_RANK=${BALANCED_LORA_RANK:-4}
+BALANCED_LORA_ALPHA=${BALANCED_LORA_ALPHA:-8}
+BALANCED_LORA_TARGETS=${BALANCED_LORA_TARGETS:-query_projection,value_projection}
+BALANCED_LOG_GATES=${BALANCED_LOG_GATES:-True}
 
 read -r -a MODEL_LIST <<< "${MODELS}"
 read -r -a DATASET_LIST <<< "${DATASETS}"
@@ -79,7 +85,7 @@ is_true() {
 has_stage() {
   local wanted="${1}"
   if [[ " ${STAGES} " == *" all "* ]]; then
-    [[ "${wanted}" == "train" || "${wanted}" == "baseline" || "${wanted}" == "cosa" || "${wanted}" == "spectral" || "${wanted}" == "collect" ]]
+    [[ "${wanted}" == "train" || "${wanted}" == "baseline" || "${wanted}" == "cosa" || "${wanted}" == "balanced" || "${wanted}" == "collect" ]]
     return
   fi
   [[ " ${STAGES} " == *" ${wanted} "* ]]
@@ -184,8 +190,8 @@ run_cmd() {
   fi
 }
 
-spectral_variant() {
-  echo "spectral_paper8_${SPECTRAL_SOURCE}_${SPECTRAL_REPR}_hist${SPECTRAL_HISTORY_SIZE}_proj${USE_CONTEXT_PROJECTION}_dim${CONTEXT_PROJECTION_DIM}" | tr ' /' '__'
+balanced_variant() {
+  echo "balanced_spectral_peft_${SPECTRAL_ENCODER_TYPE}_${SPECTRAL_FEATURE_TYPE}_win${SPECTRAL_NUM_WINDOWS}_${SPECTRAL_FUSION}_backends${BALANCED_BACKENDS}" | tr ' /,' '___'
 }
 
 cosa_variant_for_mode() {
@@ -355,7 +361,7 @@ run_cosa_one() {
     RESULT_DIR "./results/SIMPLE/${variant_tag}/"
 }
 
-run_spectral_one() {
+run_balanced_one() {
   local model="${1}"
   local dataset="${2}"
   local pred_len="${3}"
@@ -363,15 +369,15 @@ run_spectral_one() {
   local checkpoint_dir
   checkpoint_dir="$(checkpoint_dir_for "${model}" "${dataset}" "${pred_len}" "${seed}")"
   local variant_tag
-  variant_tag="$(spectral_variant)"
+  variant_tag="$(balanced_variant)"
 
   require_data "${dataset}" || return
   require_checkpoint "${checkpoint_dir}" || return
 
-  local output="./results/summary/COSA_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
-  local log_csv="./results/summary/COSA_SPECTRAL/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}_batches.csv"
+  local output="./results/summary/COSA_BALANCED/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}.log"
+  local log_csv="./results/summary/COSA_BALANCED/${variant_tag}/${model}/${dataset}/pred${pred_len}_seed${seed}_batches.csv"
   if is_true "${SKIP_EXISTING}" && [ -f "${output}" ]; then
-    echo "skip spectral: ${variant_tag}/${model}/${dataset}/${pred_len}"
+    echo "skip balanced spectral: ${variant_tag}/${model}/${dataset}/${pred_len}"
     return
   fi
 
@@ -413,22 +419,29 @@ run_spectral_one() {
     TTA.COSA.CONVERGENCE_THRESHOLD "${CONVERGENCE_THRESHOLD}" \
     TTA.COSA.ADAPTER_LAYERS 1 \
     TTA.COSA.VAR_WISE_GATING True \
-    TTA.COSA.SPECTRAL.MODE "${SPECTRAL_MODE}" \
-    TTA.COSA.SPECTRAL.USAGE "${SPECTRAL_USAGE}" \
-    TTA.COSA.SPECTRAL.SOURCE "${SPECTRAL_SOURCE}" \
-    TTA.COSA.SPECTRAL.REPR "${SPECTRAL_REPR}" \
     TTA.COSA.SPECTRAL.K "${SPECTRAL_K}" \
     TTA.COSA.SPECTRAL.HISTORY_SIZE "${SPECTRAL_HISTORY_SIZE}" \
-    TTA.COSA.SPECTRAL.INCLUDE_POWER_RATIO "${SPECTRAL_INCLUDE_POWER_RATIO}" \
-    TTA.COSA.SPECTRAL.INCLUDE_RESIDUAL_STATS "${SPECTRAL_INCLUDE_RESIDUAL_STATS}" \
-    TTA.COSA.SPECTRAL.MIN_POWER_RATIO_FOR_DIRECT "${SPECTRAL_MIN_POWER_RATIO_FOR_DIRECT}" \
-    TTA.COSA.SPECTRAL.USE_CONTEXT_PROJECTION "${USE_CONTEXT_PROJECTION}" \
-    TTA.COSA.SPECTRAL.CONTEXT_PROJECTION_DIM "${CONTEXT_PROJECTION_DIM}" \
-    TTA.COSA.SPECTRAL.MAX_CONTEXT_DIM_FOR_FULL_ADAPTER "${MAX_CONTEXT_DIM_FOR_FULL_ADAPTER}" \
-    TTA.COSA.SPECTRAL.PARAM_BUDGET_MULTIPLIER "${PARAM_BUDGET_MULTIPLIER}" \
-    TTA.COSA.SPECTRAL.ENABLE_DIRECT_CORRECTION "${ENABLE_DIRECT_CORRECTION}" \
+    TTA.COSA.SPECTRAL.ENCODER_TYPE "${SPECTRAL_ENCODER_TYPE}" \
+    TTA.COSA.SPECTRAL.NUM_WINDOWS "${SPECTRAL_NUM_WINDOWS}" \
+    TTA.COSA.SPECTRAL.WINDOW_TYPES "${SPECTRAL_WINDOW_TYPES}" \
+    TTA.COSA.SPECTRAL.FEATURE_TYPE "${SPECTRAL_FEATURE_TYPE}" \
+    TTA.COSA.SPECTRAL.POOLING "${SPECTRAL_POOLING}" \
+    TTA.COSA.SPECTRAL.FUSION "${SPECTRAL_FUSION}" \
+    TTA.COSA.SPECTRAL.CONDITION_DIM "${SPECTRAL_CONDITION_DIM}" \
     TTA.COSA.SPECTRAL.LOG_CSV_PATH "${log_csv}" \
-    RESULT_DIR "./results/COSA_SPECTRAL/${variant_tag}/"
+    TTA.COSA.BALANCED.ENABLED True \
+    TTA.COSA.BALANCED.BACKENDS "${BALANCED_BACKENDS}" \
+    TTA.COSA.BALANCED.BACKEND_GATE "${BALANCED_BACKEND_GATE}" \
+    TTA.COSA.BALANCED.MIXTURE_MODE "${BALANCED_MIXTURE_MODE}" \
+    TTA.COSA.BALANCED.FILM_EPS "${BALANCED_FILM_EPS}" \
+    TTA.COSA.BALANCED.IA3_EPS "${BALANCED_IA3_EPS}" \
+    TTA.COSA.BALANCED.ADAPTER_CONDITIONING "${BALANCED_ADAPTER_CONDITIONING}" \
+    TTA.COSA.BALANCED.LORA_ENABLED "${BALANCED_LORA_ENABLED}" \
+    TTA.COSA.BALANCED.LORA_RANK "${BALANCED_LORA_RANK}" \
+    TTA.COSA.BALANCED.LORA_ALPHA "${BALANCED_LORA_ALPHA}" \
+    TTA.COSA.BALANCED.LORA_TARGETS "${BALANCED_LORA_TARGETS}" \
+    TTA.COSA.BALANCED.LOG_GATES "${BALANCED_LOG_GATES}" \
+    RESULT_DIR "./results/COSA_BALANCED/${variant_tag}/"
 }
 
 run_collect() {
@@ -437,7 +450,7 @@ run_collect() {
   for cosa_batch_mode in "${COSA_BATCH_MODE_LIST[@]}"; do
     variants+=("$(cosa_variant_for_mode "${cosa_batch_mode}")")
   done
-  variants+=("$(spectral_variant)")
+  variants+=("$(balanced_variant)")
 
   local collect_args=(
     "${PYTHON_CMD[@]}" "${SCRIPT_DIR}/collect_results.py"
@@ -445,7 +458,7 @@ run_collect() {
     --baseline-root results/BASELINE \
     --output results/summary/paper8_full_comparison.csv \
     --average-output results/summary/paper8_full_comparison_averaged.csv \
-    --families BASELINE SIMPLE COSA_SPECTRAL \
+    --families BASELINE SIMPLE COSA_BALANCED \
     --datasets "${DATASET_LIST[@]}" \
     --models "${MODEL_LIST[@]}" \
     --horizons "${PRED_LEN_LIST[@]}" \
@@ -501,13 +514,13 @@ if has_stage cosa; then
   done
 fi
 
-if has_stage spectral; then
+if has_stage balanced; then
   for seed in "${SEED_LIST[@]}"; do
     for model in "${MODEL_LIST[@]}"; do
       for dataset in "${DATASET_LIST[@]}"; do
         for pred_len in "${PRED_LEN_LIST[@]}"; do
-          run_with_recovery spectral "${model}" "${dataset}" "${pred_len}" "${seed}" "$(spectral_variant)" \
-            run_spectral_one "${model}" "${dataset}" "${pred_len}" "${seed}"
+          run_with_recovery balanced "${model}" "${dataset}" "${pred_len}" "${seed}" "$(balanced_variant)" \
+            run_balanced_one "${model}" "${dataset}" "${pred_len}" "${seed}"
         done
       done
     done

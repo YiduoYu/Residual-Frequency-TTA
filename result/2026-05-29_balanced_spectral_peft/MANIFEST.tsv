@@ -1,0 +1,6 @@
+kind	file	source	note
+final_table	final_tables/balanced_branch_schema6_averaged.csv	remote:balanced_branch_c20260529_schema6_20260608/collected/balanced_branch_averaged.csv	171 averaged model/dataset/horizon combinations, each with 3 seeds
+final_table	final_tables/balanced_branch_schema6_full_results.csv	remote:balanced_branch_c20260529_schema6_20260608/collected/balanced_branch_full_results.csv	513 seed-level GPU balanced results
+input_matrix	input/balanced_schema6_matrix.tsv	remote:balanced_branch_c20260529_schema6_20260608/input/balanced_schema6_matrix.tsv	run matrix used by the GPU schema6 balanced run
+run_log	run_logs/balanced_schema6_matrix_20260608.log	remote:balanced_branch_c20260529_schema6_20260608/balanced_schema6_matrix_20260608.log	driver log with 512 DONE entries and 1 SKIP entry
+failure_log	failure_logs/balanced_schema6_matrix_failures.tsv	derived from run_logs/balanced_schema6_matrix_20260608.log	header only; no FAIL or MISSING entries were found
