@@ -1,7 +1,5 @@
 # Residual-Frequency Test-Time Adaptation for Time-Series Forecasting
 
-Independent research at Wenzhou-Kean University, supervised by Prof. Zhiqiang Gao.
-
 Pretrained forecasters degrade when the data distribution drifts after deployment. Test-time adaptation (TTA) corrects them online without retraining. This project builds on [COSA](https://openreview.net/forum?id=L7Z5wBMPrW) (ICLR 2026), which corrects a frozen model's output with a gated linear adapter. We ask a simple question: **does the frequency content of the model's recent errors tell the adapter how to correct it?**
 
 We propose **DSA (Direct Spectral Adapter)**, a lightweight output-space adapter conditioned on FFT features of recent prediction residuals. The backbone stays frozen and only the small adapter is updated at test time.
