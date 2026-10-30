@@ -1,6 +1,6 @@
 # Spectral-COSA: Frequency-Domain Context for Test-Time Adaptation in Time Series Forecasting
 
-Final project for **CPS 3830 Machine Learning Foundations** at Wenzhou-Kean University.
+This branch is one design studied in [Residual-Frequency Test-Time Adaptation for Time-Series Forecasting](https://github.com/YiduoYu/Residual-Frequency-TTA). See the `main` branch for the final method (DSA) and the full comparison. This branch also holds the 8-dataset benchmark pipeline used to train the backbones.
 
 This project extends [COSA](https://openreview.net/forum?id=L7Z5wBMPrW) (ICLR 2026), a lightweight output-space adapter for test-time adaptation (TTA) of time series forecasters. COSA corrects a frozen model's predictions with a gated linear residual, using recent ground-truth statistics as context. **Spectral-COSA** adds the Fourier spectrum of the recent residual profile to that context, so the adapter can see *which frequencies* the base model is currently getting wrong.
 
