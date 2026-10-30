@@ -1,209 +1,77 @@
-# Direct Spectral Adapter Branch
+# Residual-Frequency Test-Time Adaptation for Time-Series Forecasting
 
-Branch: `c/2026-06-06-direct-spectral-adapter`
+Independent research at Wenzhou-Kean University, supervised by Prof. Zhiqiang Gao.
 
-This branch contains the Direct Spectral Adapter (DSA) experiment family for
-time-series test-time adaptation. DSA keeps the pretrained forecasting backbone
-frozen and learns a compact output-space correction from recent residual
-spectral context.
+Pretrained forecasters degrade when the data distribution drifts after deployment. Test-time adaptation (TTA) corrects them online without retraining. This project builds on [COSA](https://openreview.net/forum?id=L7Z5wBMPrW) (ICLR 2026), which corrects a frozen model's output with a gated linear adapter. We ask a simple question: **does the frequency content of the model's recent errors tell the adapter how to correct it?**
 
-DSA is intentionally separate from the Balanced Spectral-PEFT branch. It does
-not use the balanced multi-backend PEFT mixture, and it does not add FiLM, IA3,
-LoRA, backend softmax routing, identity branches, post-bias calibration, or SRDC
-modules.
+We propose **DSA (Direct Spectral Adapter)**, a lightweight output-space adapter conditioned on FFT features of recent prediction residuals. The backbone stays frozen and only the small adapter is updated at test time.
 
-## What This Branch Implements
+![DSA architecture](docs/dsa_direct_spectral_adapter_architecture.png)
 
-DSA uses residual profiles from recent adaptation batches as a direct spectral
-context signal for the output adapter.
+## Method
 
-At a high level:
+1. The frozen backbone predicts $Y_t^{(0)} = f_\theta(x_t)$.
+2. After each adaptation batch, the residual profile $R_t = \mathrm{mean}_B(Y_t - Y_t^{(0)})$ is pushed into a history buffer of size $H=4$.
+3. The buffered profiles are averaged and centered, then transformed with rFFT. The first $K=8$ non-DC bins (real and imaginary parts) are kept, together with the residual power ratio, mean, and scale: $C_t^{spec} = [\mathrm{Re}(\hat R), \mathrm{Im}(\hat R), p, \mu_R, \sigma_R]$.
+4. The context is projected, $C_t = \mathrm{Proj}(C_t^{spec}) \in \mathbb{R}^8$, and concatenated with the base prediction.
+5. A linear adapter outputs a gated correction, $\hat Y_t = Y_t^{(0)} + \tanh(g) \odot (W[Y_t^{(0)} \mid C_t] + b)$, trained online with MSE.
 
-1. The frozen forecasting backbone produces a base prediction
-   `Y0 = f_theta(X)`.
-2. The adapter records recent residual profiles `R = Y - Y0`.
-3. `DirectSpectralContextBuilder` averages the recent residual profiles,
-   centers them, runs `rFFT`, and keeps the first `K` non-DC frequency bins as
-   real and imaginary features.
-4. Optional scalar features add residual power ratio, residual mean, and
-   residual scale.
-5. `DirectSpectralCorrection` optionally projects the raw context and feeds it
-   into a small `DirectOutputAdapter`.
-6. The output adapter predicts a gated correction directly on the forecast
-   output.
+Implementation: [`Spectral-master/tta/direct_spectral.py`](Spectral-master/tta/direct_spectral.py), with the shared adapter base in [`direct_adapter_base.py`](Spectral-master/tta/direct_adapter_base.py).
 
-Only the direct adapter parameters are updated during test-time adaptation. The
-base forecasting model is not retrained by the DSA runner.
+## Results
 
-Current default setting:
+The evaluation grid has 192 configurations: 8 datasets × 6 backbones (DLinear, FreTS, iTransformer, MICN, OLS, PatchTST) × 4 horizons (96, 192, 336, 720). Of these, 171 completed; the rest failed during backbone training, mostly from GPU out-of-memory on Electricity and Traffic. Every result is averaged over 3 seeds, with look-back 96 and a 0.7/0.1/0.2 split.
 
-- spectral bins `K = 8`
-- residual history size `4`
-- context projection dimension `8`
-- residual stats enabled
-- power ratio enabled
-- mean-context diagnostic disabled
+Test MSE averaged over backbones and horizons:
 
-## Architecture Diagram
+| Dataset | No TTA | COSA | Spectral context | Balanced PEFT | RESPECT | **DSA** |
+|---|---:|---:|---:|---:|---:|---:|
+| ETTh1 | 0.588 | 0.549 | 0.525 | 0.541 | **0.505** | 0.513 |
+| ETTh2 | 0.253 | 0.241 | 0.241 | 0.238 | 0.236 | **0.230** |
+| ETTm1 | 0.488 | 0.462 | 0.427 | 0.455 | **0.420** | 0.442 |
+| ETTm2 | 0.179 | 0.179 | 0.161 | 0.171 | 0.157 | **0.152** |
+| Exchange | 0.392 | 0.216 | 0.214 | 0.268 | 0.204 | **0.197** |
+| Weather | 0.265 | 0.264 | 0.215 | 0.238 | 0.206 | **0.199** |
+| Electricity | 0.205 | 0.197 | 0.191 | 0.193 | **0.184** | 0.191 |
+| Traffic | 0.590 | 0.572 | 0.570 | 0.570 | **0.549** | 0.570 |
+| **Average** | 0.3543 | 0.3169 | 0.2982 | 0.3163 | 0.2889 | 0.2911 |
 
-![Direct Spectral Adapter architecture](docs/dsa_direct_spectral_adapter_architecture.png)
+- DSA lowers average MSE from **0.3543 to 0.2911** relative to the frozen backbone, and beats COSA in 141 of 171 configurations.
+- DSA has the lowest MSE in **72 of 171** configurations among all seven methods compared; the seventh is COSA with PAAS batching, which is not shown in the table.
+- RESPECT, a heavier complex-modulation design, is slightly more accurate on average (0.2889). DSA has **higher throughput in all 171 configurations** (median 1.3×) and is more accurate on ETTh2, ETTm2, Exchange, and Weather. For some datasets and horizons, the simpler adapter therefore gives the better accuracy–efficiency trade-off.
 
-The diagram shows the DSA adaptation loop used by this branch.
+Raw and averaged results: [`result/2026-06-06_direct_spectral_adapter_ablation_diagnosis/`](result/2026-06-06_direct_spectral_adapter_ablation_diagnosis/) (DSA, including ablations) and [`result/5.26_paper8_experiment/`](result/5.26_paper8_experiment/) (baselines and spectral context).
 
-The current TTA batch provides an input window `x_t` and target window `Y_t`.
-The frozen base model predicts `Y_t^(0)`. After each adaptation batch, DSA
-stores the residual profile `R_t = mean_B(Y_t - Y_t^(0))`, where `mean_B`
-summarizes the batch-level residual pattern. The default history buffer keeps
-the latest four profiles, matching `HISTORY_SIZE=4`.
+## Branches
 
-`DirectSpectralContextBuilder` turns the history buffer into spectral context:
-it averages the recent residual profiles, centers them, applies `rFFT`, keeps
-the first non-DC real and imaginary frequency features, and appends residual
-statistics such as power ratio, residual mean, and residual scale. The raw
-spectral context is projected to the adapter context vector `C_t`.
+Each design explored in this project lives on its own branch:
 
-`DirectSpectralCorrection` concatenates the base prediction `Y_t^(0)` with
-`C_t`, uses a small linear output adapter to produce the correction `H_t`, and
-applies a learned `tanh` gate before adding the correction back to the base
-prediction. The adaptation objective is MSE between the corrected output and the
-target window. This is why DSA is a direct output-space residual adapter, not a
-balanced multi-backend PEFT router.
+| Branch | Method |
+|---|---|
+| `main` | **DSA**: direct residual-spectrum context adapter (this page) |
+| `Spectral` | Spectral context added to COSA's mean-history context, plus the full 8-dataset benchmark pipeline |
+| `c/2026-05-29-balanced-spectral-peft` | Multi-window spectral conditioning with a PEFT-style backend mixture |
+| `2026-05-29-respect-tta` | RESPECT: adapter context plus complex spectral modulation |
 
-## Key Files
-
-- `Spectral-master/tta/direct_spectral.py`
-  - DSA implementation.
-  - Defines `DirectSpectralContextBuilder`, `DirectSpectralCorrection`, and
-    `DirectSpectralAdapter`.
-- `Spectral-master/tta/direct_adapter_base.py`
-  - Shared direct-adapter base class and `DirectOutputAdapter`.
-- `Spectral-master/config.py`
-  - DSA config surface under `TTA.DIRECT_SPECTRAL.*` and
-    `TTA.DIRECT_SPECTRAL.ADAPTER.*`.
-- `Spectral-master/main.py`
-  - Routes to DSA when `TTA.DIRECT_SPECTRAL.ENABLED` is true or the result
-    directory uses `DIRECT_SPECTRAL`.
-- `Spectral-master/tests/test_direct_spectral_adapter.py`
-  - Focused DSA tests and guardrails against balanced-only concepts.
-- `script/2026-06-06_direct_spectral_adapter/run_direct_spectral_hard_subset.sh`
-  - DSA runner for targeted, hard-subset, all-dataset, and paper8-style scopes.
-- `docs/2026-06-06_direct_spectral_adapter_hard_subset_diagnosis.md`
-  - Early hard-subset diagnosis.
-- `result/2026-06-06_direct_spectral_adapter_ablation_diagnosis/`
-  - Curated DSA result package.
-
-The base model, trainer, predictor, dataset loader, TAFAS, PETSA, and DynaTTA
-paths remain in the repository because they are part of the runnable forecasting
-infrastructure.
-
-## Result Packages
-
-The main curated DSA package is:
-
-```text
-result/2026-06-06_direct_spectral_adapter_ablation_diagnosis/
-```
-
-It contains:
-
-- `dsa_paper8_full_results.csv`
-  - Seed-level DSA results.
-- `dsa_paper8_full_averaged.csv`
-  - Averaged DSA results by variant/model/dataset/horizon.
-- `README.md`
-  - Diagnosis notes for the targeted ablation slices.
-
-This branch also keeps:
-
-```text
-result/5.26_paper8_experiment/
-```
-
-That directory is not a DSA method output. It is the archived old-Spectral
-reference used for DSA comparison, missing-combination checks, and regression
-analysis.
-
-## How To Run
-
-The runner defaults to a small hard subset and reuses existing trained
-checkpoints. It does not train base forecasting models.
-
-Dry run:
+## Running
 
 ```bash
-DRY_RUN=True \
-STAGES=direct_spectral \
-MODELS=DLinear \
-DATASETS=weather \
-PRED_LENS=336 \
-SEEDS=0 \
-bash script/2026-06-06_direct_spectral_adapter/run_direct_spectral_hard_subset.sh
+cd Spectral-master && pip install -r requirements.txt && cd ..
+
+# Unit tests for the adapter
+python Spectral-master/tests/test_direct_spectral_adapter.py
+
+# DSA on the hard subset (ETTm1 / Weather, horizons 336 and 720)
+TARGET_SCOPE=hard_subset STAGES=direct_spectral \
+  bash script/2026-06-06_direct_spectral_adapter/run_direct_spectral_hard_subset.sh
 ```
 
-Default hard subset:
+The runner reuses pretrained backbone checkpoints. To train them, use the `train` stage of `script/5.26/run_paper8_spectral.sh` on the `Spectral` branch. Add `DRY_RUN=True` to print the commands without running them. Datasets go in `Spectral-master/datasets/`.
 
-- Models: `DLinear`, `FreTS`, `iTransformer`
-- Datasets: `weather`, `ETTm1`
-- Prediction lengths: `336`, `720`
-- Seeds: `0 1 2`
+## Acknowledgements and license
 
-Useful scope presets:
+Built on the official COSA implementation:
 
-- `TARGET_SCOPE=targeted`
-- `TARGET_SCOPE=hard_subset`
-- `TARGET_SCOPE=all_datasets_3models`
-- `TARGET_SCOPE=paper8_full`
+> COSA: Context-aware Output-Space Adapter for Test-Time Adaptation in Time Series Forecasting. ICLR 2026. [OpenReview](https://openreview.net/forum?id=L7Z5wBMPrW)
 
-Managed GPU runs should use the project conda environment:
-
-```bash
-PYTHON=/home/normal/miniconda3/envs/cosa/bin/python \
-TARGET_SCOPE=paper8_full \
-STAGES=direct_spectral \
-CONTINUE_ON_ERROR=True \
-bash ../script/2026-06-06_direct_spectral_adapter/run_direct_spectral_hard_subset.sh
-```
-
-The remote GPU workspace used for these experiments was:
-
-```text
-/home/normal/3830_FinalProject_COSA_latest_plan2_1/
-```
-
-## Validation
-
-Run the focused DSA test before publishing code changes:
-
-```bash
-/opt/anaconda3/condabin/conda run -n torch_env python Spectral-master/tests/test_direct_spectral_adapter.py
-```
-
-For shell runner changes, use `DRY_RUN=True` and verify that the generated
-commands enable `TTA.DIRECT_SPECTRAL.ENABLED True` and write under:
-
-```text
-results/summary/DIRECT_SPECTRAL/
-```
-
-## Artifact Policy
-
-Datasets, checkpoints, raw GPU result trees, and generated local scratch outputs
-stay local-only. Do not commit:
-
-- `data/`
-- `checkpoints/`
-- `results/`
-- `Spectral-master/data/`
-- `Spectral-master/checkpoints/`
-- `Spectral-master/results/`
-- any `checkpoint_best.pth`
-
-Only curated result packages under `result/` should be committed.
-
-## Relationship To Other Branches
-
-- Direct Spectral Adapter: this branch.
-- Balanced Spectral-PEFT: `c/2026-05-29-balanced-spectral-peft`.
-- The balanced branch uses multi-window spectral conditioning plus PEFT-style
-  backend mixture. DSA removes that mixture and uses a direct residual-spectrum
-  context adapter instead.
+The COSA code is released under [CC BY-NC-SA 4.0](Spectral-master/LICENSE), and this derivative work is shared under the same license.
